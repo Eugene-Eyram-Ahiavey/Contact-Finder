@@ -22,9 +22,9 @@ The first (and currently only) feature is **caller identification for evangelism
 
 | Milestone | Description | Status |
 |-----------|-------------|--------|
-| 0 | Feasibility assessment & project foundation | **In progress** |
-| 1 | Technical foundation | Not started |
-| 2 | Prove real caller identification | Not started |
+| 0 | Feasibility assessment & project foundation | **Complete** |
+| 1 | Technical foundation | **Complete** |
+| 2 | Prove real caller identification | **Next** (Requires physical device) |
 | 3 | Contact data model & management | Not started |
 | 4 | Integrate contacts with caller ID | Not started |
 | 5 | Import existing lists | Not started |
@@ -83,22 +83,25 @@ See [docs/FEASIBILITY.md](docs/FEASIBILITY.md) for the technical feasibility ass
 
 ```
 evangelism_caller_id/
-├── lib/                    # Flutter/Dart application code
-│   └── main.dart           # App entry point
-├── android/                # Android native project
-│   └── app/src/main/kotlin/  # Native Kotlin code (future: CallScreeningService)
-├── ios/                    # iOS native project
-│   └── Runner/             # Native Swift code (future: Call Directory Extension)
-├── test/                   # Flutter widget and unit tests
-├── docs/                   # Project documentation
-│   └── FEASIBILITY.md      # Platform feasibility assessment
-└── pubspec.yaml            # Flutter dependencies
+├── lib/                      # Flutter/Dart application code
+│   ├── main.dart             # App entry point
+│   └── services/
+│       └── caller_id_service.dart # Platform channel bridge
+├── android/                  # Android native project
+│   └── app/src/main/kotlin/  # Native Kotlin code (CallScreeningService, MainActivity)
+├── ios/                      # iOS native project
+│   └── Runner/               # Native Swift code (AppDelegate)
+├── test/                     # Flutter widget and unit tests
+│   ├── caller_id_service_test.dart
+│   └── widget_test.dart
+├── docs/                     # Project documentation
+│   └── FEASIBILITY.md        # Platform feasibility assessment
+└── pubspec.yaml              # Flutter dependencies
 ```
 
 ## Known Blockers
 
-1. **No physical devices available** — caller ID cannot be tested on emulators; real incoming calls are required.
-2. **`adb` not on PATH** — Android SDK platform-tools directory needs to be added to shell PATH.
+1. **No physical devices available right now** — Incoming-call caller ID cannot be simulated on software emulators; a physical Android phone or iPhone is required to verify real cellular calls in Milestone 2.
 
 ## License
 
