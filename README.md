@@ -24,8 +24,8 @@ The first (and currently only) feature is **caller identification for evangelism
 |-----------|-------------|--------|
 | 0 | Feasibility assessment & project foundation | **Complete** |
 | 1 | Technical foundation | **Complete** |
-| 2 | Prove real caller identification | **Next** (Requires physical device) |
-| 3 | Contact data model & management | Not started |
+| 2 | Prove real caller identification | **Pending physical phone** |
+| 3 | Contact data model & management | **Complete** |
 | 4 | Integrate contacts with caller ID | Not started |
 | 5 | Import existing lists | Not started |
 | 6 | Polished mobile UX | Not started |
@@ -85,14 +85,23 @@ See [docs/FEASIBILITY.md](docs/FEASIBILITY.md) for the technical feasibility ass
 evangelism_caller_id/
 ├── lib/                      # Flutter/Dart application code
 │   ├── main.dart             # App entry point
-│   └── services/
-│       └── caller_id_service.dart # Platform channel bridge
-├── android/                  # Android native project
-│   └── app/src/main/kotlin/  # Native Kotlin code (CallScreeningService, MainActivity)
-├── ios/                      # iOS native project
-│   └── Runner/               # Native Swift code (AppDelegate)
-├── test/                     # Flutter widget and unit tests
+│   ├── database/
+│   │   └── app_database.dart # Local SQLite database
+│   ├── models/
+│   │   ├── contact.dart      # Contact data model
+│   │   └── interaction.dart  # Follow-up interaction model
+│   ├── services/
+│   │   └── caller_id_service.dart # Platform channel bridge
+│   └── utils/
+│       └── phone_number_normalizer.dart # Ghana & E.164 normalization
+├── android/                  # Android native project (Kotlin CallScreeningService)
+├── ios/                      # iOS native project (Swift CallKit)
+├── macos/                    # macOS native desktop project
+├── test/                     # Flutter unit and integration tests
 │   ├── caller_id_service_test.dart
+│   ├── database_test.dart
+│   ├── models_test.dart
+│   ├── phone_number_normalizer_test.dart
 │   └── widget_test.dart
 ├── docs/                     # Project documentation
 │   └── FEASIBILITY.md        # Platform feasibility assessment
