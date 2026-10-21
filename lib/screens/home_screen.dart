@@ -1,0 +1,487 @@
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import 'package:evangelism_caller_id/database/app_database.dart';
+import 'package:evangelism_caller_id/models/contact.dart';
+import 'package:evangelism_caller_id/screens/contact_detail_modal.dart';
+import 'package:evangelism_caller_id/screens/import_modal.dart';
+import 'package:evangelism_caller_id/services/caller_id_service.dart';
+import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+
+/// HomeScreen
+///
+/// The central mobile dashboard for church outreach teams:
+/// - Real-time search across names, phone numbers, and locations
+/// - Fast mobile-first contact cards
+/// - Quick import from Notes/Excel
+/// - Caller ID system status indicator
+class HomeScreen extends StatefulWidget {
+  final AppDatabase database;
+
+  const HomeScreen({super.key, required this.database});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  static const _uuid = Uuid();
+  List<Contact> _contacts = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
+  bool _isCallerIdEnabled = false;
+
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
+    _checkCallerIdStatus();
+  }
+
+  Future<void> _checkCallerIdStatus() async {
+    final enabled = await CallerIdService.isCallerIdEnabled();
+    if (mounted) {
+      setState(() => _isCallerIdEnabled = enabled);
+    }
+  }
+
+  Future<void> _requestCallerId() async {
+    final granted = await CallerIdService.requestCallerIdRole();
+    if (mounted) {
+      setState(() => _isCallerIdEnabled = granted);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            granted
+                ? 'Caller ID permissions granted!'
+                : 'Caller ID role was not granted.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadContacts() async {
+    final list = _searchQuery.isEmpty
+        ? await widget.database.getAllContacts()
+        : await widget.database.searchContacts(_searchQuery);
+
+    if (mounted) {
+      setState(() {
+        _contacts = list;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() => _searchQuery = query);
+    _loadContacts();
+  }
+
+  void _openImportModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ImportNotesModal(
+        database: widget.database,
+        onImportCompleted: _loadContacts,
+      ),
+    );
+  }
+
+  void _openContactDetail(Contact contact) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ContactDetailModal(
+        contact: contact,
+        database: widget.database,
+        onDataChanged: _loadContacts,
+      ),
+    );
+  }
+
+  Future<void> _showAddContactDialog() async {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final locationController = TextEditingController();
+    final notesController = TextEditingController();
+
+    String? validationError;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Evangelism Contact'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number (e.g. 0244123456)',
+                        errorText: validationError,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(labelText: 'Location / Area'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Outreach Notes'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final rawPhone = phoneController.text.trim();
+                    final normalized = PhoneNumberNormalizer.normalize(rawPhone);
+
+                    if (normalized == null) {
+                      setDialogState(() {
+                        validationError = 'Please enter a valid phone number';
+                      });
+                      return;
+                    }
+
+                    final newContact = Contact(
+                      id: _uuid.v4(),
+                      name: nameController.text.trim().isNotEmpty
+                          ? nameController.text.trim()
+                          : 'Unknown Contact',
+                      phoneNumber: rawPhone,
+                      normalizedPhoneNumber: normalized,
+                      location: locationController.text.trim().isNotEmpty
+                          ? locationController.text.trim()
+                          : null,
+                      notes: notesController.text.trim().isNotEmpty
+                          ? notesController.text.trim()
+                          : null,
+                      createdAt: DateTime.now(),
+                      updatedAt: DateTime.now(),
+                    );
+
+                    try {
+                      await widget.database.insertContact(newContact);
+                      if (context.mounted) {
+                        Navigator.of(ctx).pop();
+                        _loadContacts();
+                      }
+                    } on DuplicatePhoneNumberException catch (e) {
+                      setDialogState(() {
+                        validationError = e.message;
+                      });
+                    }
+                  },
+                  child: const Text('Save Contact'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Evangelism Contacts',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+            ),
+            Text(
+              '${_contacts.length} outreach ${_contacts.length == 1 ? "contact" : "contacts"}',
+              style: TextStyle(fontSize: 12, color: Colors.indigo.shade100),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.indigo.shade700,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.paste),
+            tooltip: 'Paste from Notes',
+            onPressed: _openImportModal,
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Add Single Contact',
+            onPressed: _showAddContactDialog,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Caller ID Status Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: _isCallerIdEnabled
+                ? Colors.teal.shade50
+                : Colors.amber.shade50,
+            child: Row(
+              children: [
+                Icon(
+                  _isCallerIdEnabled
+                      ? Icons.phone_forwarded
+                      : Icons.phone_disabled_outlined,
+                  size: 20,
+                  color: _isCallerIdEnabled
+                      ? Colors.teal.shade800
+                      : Colors.amber.shade900,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _isCallerIdEnabled
+                        ? 'Incoming Call Identification Active'
+                        : 'Caller ID not activated yet',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _isCallerIdEnabled
+                          ? Colors.teal.shade900
+                          : Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+                if (!_isCallerIdEnabled)
+                  TextButton(
+                    onPressed: _requestCallerId,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('Enable'),
+                  ),
+              ],
+            ),
+          ),
+
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Search by name, number (024...), or area...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+              ),
+            ),
+          ),
+
+          // Contact List or Empty State
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _contacts.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        itemCount: _contacts.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        itemBuilder: (context, index) {
+                          final contact = _contacts[index];
+                          final displayPhone =
+                              PhoneNumberNormalizer.formatForDisplay(
+                            contact.phoneNumber,
+                          );
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: 0,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            child: ListTile(
+                              onTap: () => _openContactDetail(contact),
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.indigo.shade50,
+                                child: Text(
+                                  contact.name.isNotEmpty
+                                      ? contact.name[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    color: Colors.indigo.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                contact.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              subtitle: Text(
+                                displayPhone,
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (contact.location != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blueGrey.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        contact.location!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blueGrey.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openImportModal,
+        backgroundColor: Colors.indigo.shade700,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.paste),
+        label: const Text('Paste Notes'),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.people_outline,
+                size: 48,
+                color: Colors.indigo.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No contacts matching "$_searchQuery"'
+                  : 'No Evangelism Contacts Yet',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Check your spelling or try searching by location/phone.'
+                  : 'Paste your outreach contacts from Apple Notes, WhatsApp, or Excel to get started.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            if (_searchQuery.isEmpty)
+              ElevatedButton.icon(
+                onPressed: _openImportModal,
+                icon: const Icon(Icons.paste),
+                label: const Text('Paste from Notes'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
