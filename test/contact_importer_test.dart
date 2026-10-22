@@ -1,3 +1,4 @@
+import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evangelism_caller_id/services/contact_importer.dart';
 
@@ -90,6 +91,55 @@ Kofi Duplicate - 024 412 3456 - Accra
       final result = ContactImporter.parseText(duplicateInput);
       expect(result.validContacts.length, 1);
       expect(result.duplicateInBatch.length, 1);
+    });
+
+    test('parses binary Excel (.xlsx) file bytes faithfully', () {
+      final excel = Excel.createExcel();
+      final sheet = excel['Sheet1'];
+
+      // Add Header
+      sheet.appendRow([
+        TextCellValue('Name'),
+        TextCellValue('Phone Number'),
+        TextCellValue('Location'),
+        TextCellValue('Outreach Notes'),
+      ]);
+
+      // Add Contact Row 1
+      sheet.appendRow([
+        TextCellValue('Sarah Osei'),
+        TextCellValue('0244556677'),
+        TextCellValue('Airport Residential'),
+        TextCellValue('Requested follow-up call'),
+      ]);
+
+      // Add Contact Row 2
+      sheet.appendRow([
+        TextCellValue('David Kwarteng'),
+        TextCellValue('+233501234567'),
+        TextCellValue('Cantonments'),
+        TextCellValue('Bible study invite'),
+      ]);
+
+      final bytes = excel.save()!;
+      final result = ContactImporter.parseExcelBytes(bytes);
+
+      expect(result.validContacts.length, 2);
+      expect(result.skippedLines, isEmpty);
+
+      final first = result.validContacts[0];
+      expect(first.name, 'Sarah Osei');
+      expect(first.phoneNumber, '0244556677');
+      expect(first.normalizedPhoneNumber, '+233244556677');
+      expect(first.location, 'Airport Residential');
+      expect(first.notes, 'Requested follow-up call');
+
+      final second = result.validContacts[1];
+      expect(second.name, 'David Kwarteng');
+      expect(second.phoneNumber, '+233501234567');
+      expect(second.normalizedPhoneNumber, '+233501234567');
+      expect(second.location, 'Cantonments');
+      expect(second.notes, 'Bible study invite');
     });
   });
 }

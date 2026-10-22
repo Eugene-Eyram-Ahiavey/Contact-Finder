@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:evangelism_caller_id/database/app_database.dart';
 import 'package:evangelism_caller_id/models/contact.dart';
 import 'package:evangelism_caller_id/models/interaction.dart';
+import 'package:evangelism_caller_id/services/phone_dialer_service.dart';
 import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
 
 /// ContactDetailModal
@@ -237,7 +238,50 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
             ],
           ),
 
+          // Action Buttons: Direct Call & Log Notes
           const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final dialed = await PhoneDialerService.dial(widget.contact.phoneNumber);
+                    if (!dialed && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open phone dialer on this device.')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.phone, color: Colors.white, size: 20),
+                  label: const Text(
+                    'Call Contact',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: OutlinedButton.icon(
+                  onPressed: _showAddFollowUpDialog,
+                  icon: const Icon(Icons.note_add_outlined, size: 18),
+                  label: const Text('Log Notes'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
           const Divider(),
 
           // General outreach notes

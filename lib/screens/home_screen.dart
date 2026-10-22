@@ -5,6 +5,7 @@ import 'package:evangelism_caller_id/models/contact.dart';
 import 'package:evangelism_caller_id/screens/contact_detail_modal.dart';
 import 'package:evangelism_caller_id/screens/import_modal.dart';
 import 'package:evangelism_caller_id/services/caller_id_service.dart';
+import 'package:evangelism_caller_id/services/phone_dialer_service.dart';
 import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
 
 /// HomeScreen
@@ -401,6 +402,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.phone_outlined, color: Colors.green),
+                                    tooltip: 'Call ${contact.name}',
+                                    onPressed: () => PhoneDialerService.dial(contact.phoneNumber),
+                                  ),
                                   Icon(
                                     Icons.chevron_right,
                                     color: Colors.grey.shade400,
