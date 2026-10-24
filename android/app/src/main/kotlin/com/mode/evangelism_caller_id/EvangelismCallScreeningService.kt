@@ -171,9 +171,11 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     ))
                 }
 
-                // Touch and drag listener so user can slide card anywhere on screen
+                // Touch and drag listener so user can slide card anywhere on screen,
+                // or swipe horizontally to dismiss it instantly
                 var initialY = 0
                 var initialTouchY = 0f
+                var initialTouchX = 0f
                 var isDragging = false
 
                 cardLayout.setOnTouchListener { _, event ->
@@ -181,12 +183,14 @@ class EvangelismCallScreeningService : CallScreeningService() {
                         MotionEvent.ACTION_DOWN -> {
                             initialY = layoutParams.y
                             initialTouchY = event.rawY
+                            initialTouchX = event.rawX
                             isDragging = false
                             true
                         }
                         MotionEvent.ACTION_MOVE -> {
                             val deltaY = (event.rawY - initialTouchY).toInt()
-                            if (Math.abs(deltaY) > dp(4) || isDragging) {
+                            val deltaX = Math.abs(event.rawX - initialTouchX)
+                            if (Math.abs(deltaY) > dp(4) || deltaX > dp(4) || isDragging) {
                                 isDragging = true
                                 layoutParams.y = (initialY + deltaY).coerceAtLeast(dp(20))
                                 try {
@@ -196,7 +200,14 @@ class EvangelismCallScreeningService : CallScreeningService() {
                             true
                         }
                         MotionEvent.ACTION_UP -> {
-                            if (!isDragging) {
+                            val deltaX = Math.abs(event.rawX - initialTouchX)
+                            if (deltaX > dp(90)) {
+                                // Horizontal swipe-to-dismiss gesture
+                                try {
+                                    windowManager.removeView(rootLayout)
+                                    activeOverlayView = null
+                                } catch (_: Exception) {}
+                            } else if (!isDragging) {
                                 val clickIntent = Intent(applicationContext, MainActivity::class.java).apply {
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                                     putExtra("contact_id", match.id)
@@ -229,7 +240,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     text = "✕"
                     textSize = 20f
                     setTextColor(Color.WHITE)
-                    setPadding(dp(10), dp(0), dp(4), dp(0))
+                    setPadding(dp(12), dp(2), dp(6), dp(2))
                     setOnClickListener {
                         try {
                             windowManager.removeView(rootLayout)
@@ -287,7 +298,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                 activeOverlayView = rootLayout
                 Log.d(TAG, "Floating overlay card displayed successfully on screen!")
 
-                // Auto-dismiss floating card after 25 seconds
+                // Auto-dismiss floating card after 18 seconds if unanswered
                 Handler(Looper.getMainLooper()).postDelayed({
                     try {
                         if (activeOverlayView == rootLayout) {
@@ -295,7 +306,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                             activeOverlayView = null
                         }
                     } catch (_: Exception) {}
-                }, 25000)
+                }, 18000)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to display floating overlay: ${e.message}", e)

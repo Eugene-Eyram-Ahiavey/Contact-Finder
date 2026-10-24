@@ -26,9 +26,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _uuid = Uuid();
+  List<Contact> _allContacts = [];
   List<Contact> _contacts = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  String _selectedFilter = 'All';
   bool _isCallerIdEnabled = false;
   bool _isOverlayEnabled = false;
 
@@ -87,10 +89,45 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _contacts = list;
+        _allContacts = list;
+        _applyFilter();
         _isLoading = false;
       });
     }
+  }
+
+  void _applyFilter() {
+    if (_selectedFilter == 'All') {
+      _contacts = _allContacts;
+    } else if (_selectedFilter == 'Has Notes') {
+      _contacts = _allContacts
+          .where((c) => c.notes != null && c.notes!.trim().isNotEmpty)
+          .toList();
+    } else {
+      _contacts = _allContacts
+          .where((c) =>
+              c.location != null &&
+              c.location!.trim().toLowerCase() == _selectedFilter.toLowerCase())
+          .toList();
+    }
+  }
+
+  void _onFilterSelected(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+      _applyFilter();
+    });
+  }
+
+  List<String> get _availableLocations {
+    final locs = _allContacts
+        .map((c) => c.location?.trim())
+        .where((loc) => loc != null && loc.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+    locs.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return locs;
   }
 
   void _onSearchChanged(String query) {
@@ -245,7 +282,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
             ),
             Text(
-              '${_contacts.length} outreach ${_contacts.length == 1 ? "contact" : "contacts"}',
+              _allContacts.isEmpty
+                  ? '0 outreach contacts'
+                  : _selectedFilter == 'All' && _searchQuery.isEmpty
+                      ? '${_allContacts.length} outreach ${_allContacts.length == 1 ? "contact" : "contacts"}'
+                      : '${_contacts.length} of ${_allContacts.length} contacts',
               style: TextStyle(fontSize: 12, color: Colors.indigo.shade100),
             ),
           ],
@@ -273,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           // Search Bar
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
             child: TextField(
               controller: _searchController,
               onChanged: _onSearchChanged,
@@ -303,6 +344,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+
+          // Location & Notes Filter Chips
+          _buildFilterChips(),
 
           // Contact List or Empty State
           Expanded(
@@ -402,6 +446,104 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.paste),
         label: const Text('Paste Notes'),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    final locations = _availableLocations;
+    final hasNotesCount = _allContacts
+        .where((c) => c.notes != null && c.notes!.trim().isNotEmpty)
+        .length;
+
+    if (_allContacts.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        children: [
+          ChoiceChip(
+            label: Text('All (${_allContacts.length})'),
+            selected: _selectedFilter == 'All',
+            onSelected: (_) => _onFilterSelected('All'),
+            selectedColor: Colors.indigo.shade100,
+            backgroundColor: Colors.white,
+            visualDensity: VisualDensity.compact,
+            side: BorderSide(
+              color: _selectedFilter == 'All'
+                  ? Colors.indigo
+                  : Colors.grey.shade300,
+            ),
+            labelStyle: TextStyle(
+              color: _selectedFilter == 'All'
+                  ? Colors.indigo.shade900
+                  : Colors.grey.shade700,
+              fontWeight: _selectedFilter == 'All'
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (hasNotesCount > 0) ...[
+            ChoiceChip(
+              label: Text('📝 Has Notes ($hasNotesCount)'),
+              selected: _selectedFilter == 'Has Notes',
+              onSelected: (_) => _onFilterSelected('Has Notes'),
+              selectedColor: Colors.indigo.shade100,
+              backgroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+              side: BorderSide(
+                color: _selectedFilter == 'Has Notes'
+                    ? Colors.indigo
+                    : Colors.grey.shade300,
+              ),
+              labelStyle: TextStyle(
+                color: _selectedFilter == 'Has Notes'
+                    ? Colors.indigo.shade900
+                    : Colors.grey.shade700,
+                fontWeight: _selectedFilter == 'Has Notes'
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          ...locations.map((loc) {
+            final count = _allContacts
+                .where((c) =>
+                    c.location != null &&
+                    c.location!.trim().toLowerCase() == loc.toLowerCase())
+                .length;
+            final isSelected =
+                _selectedFilter.toLowerCase() == loc.toLowerCase();
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text('📍 $loc ($count)'),
+                selected: isSelected,
+                onSelected: (_) => _onFilterSelected(loc),
+                selectedColor: Colors.indigo.shade100,
+                backgroundColor: Colors.white,
+                visualDensity: VisualDensity.compact,
+                side: BorderSide(
+                  color: isSelected ? Colors.indigo : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? Colors.indigo.shade900
+                      : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

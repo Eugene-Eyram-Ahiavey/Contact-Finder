@@ -28,23 +28,136 @@ class ContactDetailModal extends StatefulWidget {
 
 class _ContactDetailModalState extends State<ContactDetailModal> {
   static const _uuid = Uuid();
+  late Contact _contact;
   List<Interaction> _interactions = [];
   bool _isLoadingInteractions = true;
 
   @override
   void initState() {
     super.initState();
+    _contact = widget.contact;
     _loadInteractions();
   }
 
   Future<void> _loadInteractions() async {
-    final list = await widget.database.getInteractionsForContact(widget.contact.id);
+    final list = await widget.database.getInteractionsForContact(_contact.id);
     if (mounted) {
       setState(() {
         _interactions = list;
         _isLoadingInteractions = false;
       });
     }
+  }
+
+  Future<void> _showEditContactDialog() async {
+    final nameController = TextEditingController(text: _contact.name);
+    final phoneController = TextEditingController(text: _contact.phoneNumber);
+    final locationController = TextEditingController(text: _contact.location ?? '');
+    final notesController = TextEditingController(text: _contact.notes ?? '');
+
+    String? validationError;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Evangelism Contact'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number (e.g. 0244123456)',
+                        errorText: validationError,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(labelText: 'Location / Area'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Outreach Notes'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final rawPhone = phoneController.text.trim();
+                    final normalized = PhoneNumberNormalizer.normalize(rawPhone);
+
+                    if (normalized == null) {
+                      setDialogState(() {
+                        validationError = 'Please enter a valid phone number';
+                      });
+                      return;
+                    }
+
+                    // Check if another contact already has this phone number
+                    final existing = await widget.database.findContactByPhoneNumber(rawPhone);
+                    if (existing != null && existing.id != _contact.id) {
+                      setDialogState(() {
+                        validationError = 'Another contact already has this phone number';
+                      });
+                      return;
+                    }
+
+                    final updated = _contact.copyWith(
+                      name: nameController.text.trim().isNotEmpty
+                          ? nameController.text.trim()
+                          : 'Unknown Contact',
+                      phoneNumber: rawPhone,
+                      normalizedPhoneNumber: normalized,
+                      location: locationController.text.trim().isNotEmpty
+                          ? locationController.text.trim()
+                          : null,
+                      notes: notesController.text.trim().isNotEmpty
+                          ? notesController.text.trim()
+                          : null,
+                      updatedAt: DateTime.now(),
+                    );
+
+                    await widget.database.updateContact(updated);
+                    if (ctx.mounted) {
+                      Navigator.of(ctx).pop();
+                    }
+                    if (mounted) {
+                      setState(() {
+                        _contact = updated;
+                      });
+                      widget.onDataChanged();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Contact updated successfully')),
+                      );
+                    }
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _showAddFollowUpDialog() async {
@@ -109,7 +222,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                   onPressed: () async {
                     final newInteraction = Interaction(
                       id: _uuid.v4(),
-                      contactId: widget.contact.id,
+                      contactId: _contact.id,
                       date: DateTime.now(),
                       outcome: selectedOutcome,
                       notes: notesController.text.trim().isNotEmpty
@@ -139,7 +252,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Contact'),
-        content: Text('Are you sure you want to delete ${widget.contact.name}?'),
+        content: Text('Are you sure you want to delete ${_contact.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -155,7 +268,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
     );
 
     if (confirmed == true) {
-      await widget.database.deleteContact(widget.contact.id);
+      await widget.database.deleteContact(_contact.id);
       if (mounted) {
         widget.onDataChanged();
         Navigator.of(context).pop();
@@ -166,7 +279,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayPhone = PhoneNumberNormalizer.formatForDisplay(widget.contact.phoneNumber);
+    final displayPhone = PhoneNumberNormalizer.formatForDisplay(_contact.phoneNumber);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -198,7 +311,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                 radius: 28,
                 backgroundColor: Colors.indigo.shade100,
                 child: Text(
-                  widget.contact.name.isNotEmpty ? widget.contact.name[0].toUpperCase() : '?',
+                  _contact.name.isNotEmpty ? _contact.name[0].toUpperCase() : '?',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -212,28 +325,38 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.contact.name,
+                      _contact.name,
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Text(
                       displayPhone,
                       style: TextStyle(color: Colors.indigo.shade600, fontWeight: FontWeight.w600),
                     ),
-                    if (widget.contact.location != null)
+                    if (_contact.location != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          widget.contact.location!,
+                          _contact.location!,
                           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                         ),
                       ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: _deleteContact,
-                tooltip: 'Delete Contact',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.indigo),
+                    onPressed: _showEditContactDialog,
+                    tooltip: 'Edit Contact',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    onPressed: _deleteContact,
+                    tooltip: 'Delete Contact',
+                  ),
+                ],
               ),
             ],
           ),
@@ -246,7 +369,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                 flex: 3,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final dialed = await PhoneDialerService.dial(widget.contact.phoneNumber);
+                    final dialed = await PhoneDialerService.dial(_contact.phoneNumber);
                     if (!dialed && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Could not open phone dialer on this device.')),
@@ -285,7 +408,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
           const Divider(),
 
           // General outreach notes
-          if (widget.contact.notes != null && widget.contact.notes!.isNotEmpty) ...[
+          if (_contact.notes != null && _contact.notes!.isNotEmpty) ...[
             Text('Outreach Notes:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade800)),
             const SizedBox(height: 4),
             Container(
@@ -295,7 +418,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Text(widget.contact.notes!),
+              child: Text(_contact.notes!),
             ),
             const SizedBox(height: 14),
           ],
