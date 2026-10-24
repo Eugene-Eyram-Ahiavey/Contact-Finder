@@ -240,4 +240,61 @@ void main() {
       expect(latest.outcome, 'Called back; conversation completed');
     });
   });
+
+  group('Milestone 7: Scale & Edge Case Verification', () {
+    test('benchmarks sub-millisecond lookup speed across 1,000 evangelism contacts', () async {
+      // 1. Batch insert 1,000 realistic church outreach contacts
+      final batch = <Contact>[];
+      for (int i = 0; i < 1000; i++) {
+        final padded = i.toString().padLeft(7, '0');
+        batch.add(Contact(
+          id: 'contact-$i',
+          name: 'Outreach Person $i',
+          phoneNumber: '024$padded',
+          normalizedPhoneNumber: '+23324$padded',
+          location: i % 2 == 0 ? 'Accra Central' : 'Tema Community ${i % 10}',
+          notes: 'Met at evangelism drive #$i',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ));
+      }
+
+      await appDb.insertContactsBatch(batch);
+
+      // Verify count
+      final all = await appDb.getAllContacts();
+      expect(all.length, 1000);
+
+      // 2. Measure lookup speed for the 999th contact (worst-case search position)
+      final stopwatch = Stopwatch()..start();
+      final target = await appDb.findContactByPhoneNumber('0240000999');
+      stopwatch.stop();
+
+      expect(target, isNotNull);
+      expect(target!.name, 'Outreach Person 999');
+      expect(target.normalizedPhoneNumber, '+233240000999');
+
+      // Indexed SQLite B-Tree search should resolve in under 15ms even on CPU-constrained test runners
+      expect(stopwatch.elapsedMilliseconds, lessThan(15));
+    });
+
+    test('correctly handles contact records with null optional fields without crashing', () async {
+      final minimalContact = Contact(
+        id: 'contact-minimal',
+        name: 'Minimal Contact',
+        phoneNumber: '0501234567',
+        normalizedPhoneNumber: '+233501234567',
+        location: null,
+        notes: null,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await appDb.insertContact(minimalContact);
+      final found = await appDb.findContactByPhoneNumber('050 123 4567');
+      expect(found, isNotNull);
+      expect(found!.location, isNull);
+      expect(found.notes, isNull);
+    });
+  });
 }

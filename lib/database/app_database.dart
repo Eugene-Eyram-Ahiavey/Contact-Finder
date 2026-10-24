@@ -129,6 +129,20 @@ class AppDatabase {
     }
   }
 
+  /// Inserts multiple contacts in a single SQLite batch transaction for high-performance bulk operations.
+  Future<void> insertContactsBatch(List<Contact> contacts) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final contact in contacts) {
+      batch.insert(
+        tableContacts,
+        contact.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
   /// Finds a contact by their unique ID.
   Future<Contact?> getContactById(String id) async {
     final db = await database;
