@@ -56,6 +56,22 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                 }
+                "isOverlayPermissionGranted" -> {
+                    val canDraw = android.provider.Settings.canDrawOverlays(this)
+                    result.success(canDraw)
+                }
+                "requestOverlayPermission" -> {
+                    if (!android.provider.Settings.canDrawOverlays(this)) {
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                        result.success(true)
+                    } else {
+                        result.success(true)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }

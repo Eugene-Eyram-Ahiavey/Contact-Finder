@@ -24,33 +24,46 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _uuid = Uuid();
   List<Contact> _contacts = [];
   bool _isLoading = true;
   String _searchQuery = '';
   bool _isCallerIdEnabled = false;
+  bool _isOverlayEnabled = false;
 
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadContacts();
     _checkCallerIdStatus();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkCallerIdStatus();
+    }
+  }
+
   Future<void> _checkCallerIdStatus() async {
-    final enabled = await CallerIdService.isCallerIdEnabled();
+    final callerIdEnabled = await CallerIdService.isCallerIdEnabled();
+    final overlayEnabled = await CallerIdService.isOverlayPermissionGranted();
     if (mounted) {
-      setState(() => _isCallerIdEnabled = enabled);
+      setState(() {
+        _isCallerIdEnabled = callerIdEnabled;
+        _isOverlayEnabled = overlayEnabled;
+      });
     }
   }
 
   Future<void> _requestCallerId() async {
     final granted = await CallerIdService.requestCallerIdRole();
     if (mounted) {
-      setState(() => _isCallerIdEnabled = granted);
+      _checkCallerIdStatus();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -61,6 +74,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _requestOverlay() async {
+    await CallerIdService.requestOverlayPermission();
   }
 
   Future<void> _loadContacts() async {
@@ -210,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -250,50 +268,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Caller ID Status Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: _isCallerIdEnabled
-                ? Colors.teal.shade50
-                : Colors.amber.shade50,
-            child: Row(
-              children: [
-                Icon(
-                  _isCallerIdEnabled
-                      ? Icons.phone_forwarded
-                      : Icons.phone_disabled_outlined,
-                  size: 20,
-                  color: _isCallerIdEnabled
-                      ? Colors.teal.shade800
-                      : Colors.amber.shade900,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _isCallerIdEnabled
-                        ? 'Incoming Call Identification Active'
-                        : 'Caller ID not activated yet',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _isCallerIdEnabled
-                          ? Colors.teal.shade900
-                          : Colors.amber.shade900,
-                    ),
-                  ),
-                ),
-                if (!_isCallerIdEnabled)
-                  TextButton(
-                    onPressed: _requestCallerId,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text('Enable'),
-                  ),
-              ],
-            ),
-          ),
+          // Caller ID & Overlay Status Banner
+          _buildStatusBanner(),
 
           // Search Bar
           Padding(
@@ -487,6 +463,96 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    final bool allActive = _isCallerIdEnabled && _isOverlayEnabled;
+
+    if (allActive) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: Colors.teal.shade50,
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, size: 20, color: Colors.teal.shade800),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Floating Caller ID Active on Screen',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.teal.shade900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isCallerIdEnabled) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: Colors.amber.shade50,
+        child: Row(
+          children: [
+            Icon(Icons.phone_disabled_outlined, size: 20, color: Colors.amber.shade900),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Caller ID Role required to identify callers',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _requestCallerId,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Enable Role'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Caller ID role is enabled, but overlay permission is missing
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: Colors.indigo.shade50,
+      child: Row(
+        children: [
+          Icon(Icons.layers_outlined, size: 20, color: Colors.indigo.shade800),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Enable Floating Screen Card ("Display over apps")',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.indigo.shade900,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _requestOverlay,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Turn On', style: TextStyle(fontSize: 12)),
+          ),
+        ],
       ),
     );
   }

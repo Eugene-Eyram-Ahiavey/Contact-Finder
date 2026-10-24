@@ -7,10 +7,24 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.util.Log
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 
 /**
@@ -18,17 +32,17 @@ import androidx.annotation.RequiresApi
  *
  * Intercepts incoming phone calls at the OS level (Android 10+ / API 29+).
  *
- * Core Workflow (Milestone 2 & Milestone 4):
+ * Core Workflow:
  * 1. Android OS fires `onScreenCall(callDetails)`.
- * 2. Service extracts and normalizes the incoming phone number (e.g., Ghana 024... -> +23324...).
- * 3. Opens the local SQLite database (`evangelism_caller_id.db`) in read-only mode.
- * 4. Queries `contacts` and `interactions` tables for an exact normalized number match.
- * 5. If MATCH found:
- *    - Displays a High-Priority Heads-Up Notification with the person's name, location, and notes.
- *    - Tapping the notification opens the app to their contact profile.
- * 6. If NO match:
- *    - Remains completely silent (no false identifications).
- * 7. Calls `respondToCall` allowing the normal phone call to ring through without interruption.
+ * 2. Normalizes the incoming phone number (e.g. Ghana 024... -> +23324...).
+ * 3. Queries the local SQLite database (`evangelism_caller_id.db`) directly in read-only mode (<10ms).
+ * 4. If MATCH found:
+ *    - Displays a Truecaller-style floating overlay card directly on top of the ringing screen
+ *      (via `SYSTEM_ALERT_WINDOW` / `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY`).
+ *    - Also posts a High-Priority notification in the notification shade as a persistent log.
+ * 5. If NO match:
+ *    - Remains completely silent (zero false identifications).
+ * 6. Always allows the cellular call to ring through without interference.
  */
 @RequiresApi(Build.VERSION_CODES.Q)
 class EvangelismCallScreeningService : CallScreeningService() {
@@ -37,6 +51,9 @@ class EvangelismCallScreeningService : CallScreeningService() {
         private const val TAG = "CallScreeningService"
         const val CHANNEL_ID = "evangelism_caller_id"
         const val CHANNEL_NAME = "Evangelism Caller ID"
+
+        // Static reference to track active overlay across instances
+        private var activeOverlayView: View? = null
     }
 
     data class ContactMatch(
@@ -65,7 +82,10 @@ class EvangelismCallScreeningService : CallScreeningService() {
             val match = lookupContact(normalized, digitsOnly)
             if (match != null) {
                 Log.d(TAG, "Matched contact: '${match.name}', location='${match.location}'")
+                // 1. Post notification for notification shade log
                 showCallerNotification(match)
+                // 2. Display the Truecaller-style floating overlay directly on the ringing screen
+                showFloatingOverlay(match)
             } else {
                 Log.d(TAG, "No matching evangelism contact found for: $rawPhoneNumber")
             }
@@ -80,6 +100,211 @@ class EvangelismCallScreeningService : CallScreeningService() {
             .build()
 
         respondToCall(callDetails, response)
+    }
+
+    /**
+     * Displays a Truecaller-style floating card directly on top of the phone screen
+     * while the incoming call is ringing.
+     */
+    private fun showFloatingOverlay(match: ContactMatch) {
+        if (!Settings.canDrawOverlays(applicationContext)) {
+            Log.w(TAG, "SYSTEM_ALERT_WINDOW permission not granted; cannot display floating card")
+            return
+        }
+
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+                // Remove any previous active overlay
+                activeOverlayView?.let {
+                    try { windowManager.removeView(it) } catch (_: Exception) {}
+                    activeOverlayView = null
+                }
+
+                val layoutParams = WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                    PixelFormat.TRANSLUCENT
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    y = dp(230) // Positioned safely below the native call pop-up
+                }
+
+                // Card container styling
+                val cardLayout = LinearLayout(applicationContext).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(18), dp(12), dp(18), dp(16))
+                    val bg = GradientDrawable().apply {
+                        setColor(Color.parseColor("#1A237E")) // Deep Royal Indigo
+                        cornerRadius = dp(16).toFloat()
+                        setStroke(dp(2), Color.parseColor("#3F51B5")) // Electric Indigo border
+                    }
+                    background = bg
+                    elevation = dp(14).toFloat()
+                }
+
+                // Drag handle pill at the top
+                val dragHandle = View(applicationContext).apply {
+                    val handleBg = GradientDrawable().apply {
+                        setColor(Color.parseColor("#5C6BC0"))
+                        cornerRadius = dp(2).toFloat()
+                    }
+                    background = handleBg
+                }
+                val handleParams = LinearLayout.LayoutParams(dp(40), dp(4)).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    bottomMargin = dp(8)
+                }
+                cardLayout.addView(dragHandle, handleParams)
+
+                // Outer root with screen margin
+                val rootLayout = FrameLayout(applicationContext).apply {
+                    setPadding(dp(14), dp(8), dp(14), dp(8))
+                    addView(cardLayout, FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT
+                    ))
+                }
+
+                // Touch and drag listener so user can slide card anywhere on screen
+                var initialY = 0
+                var initialTouchY = 0f
+                var isDragging = false
+
+                cardLayout.setOnTouchListener { _, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialY = layoutParams.y
+                            initialTouchY = event.rawY
+                            isDragging = false
+                            true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val deltaY = (event.rawY - initialTouchY).toInt()
+                            if (Math.abs(deltaY) > dp(4) || isDragging) {
+                                isDragging = true
+                                layoutParams.y = (initialY + deltaY).coerceAtLeast(dp(20))
+                                try {
+                                    windowManager.updateViewLayout(rootLayout, layoutParams)
+                                } catch (_: Exception) {}
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            if (!isDragging) {
+                                val clickIntent = Intent(applicationContext, MainActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                    putExtra("contact_id", match.id)
+                                    putExtra("phone_number", match.rawPhone)
+                                }
+                                applicationContext.startActivity(clickIntent)
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
+
+                // Header Row (Badge + Dismiss ✕ button)
+                val headerRow = LinearLayout(applicationContext).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+
+                val badge = TextView(applicationContext).apply {
+                    text = "✝ CALLFINDER • OUTREACH CONTACT"
+                    textSize = 11f
+                    setTextColor(Color.parseColor("#90CAF9"))
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                val badgeParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                headerRow.addView(badge, badgeParams)
+
+                val closeBtn = TextView(applicationContext).apply {
+                    text = "✕"
+                    textSize = 20f
+                    setTextColor(Color.WHITE)
+                    setPadding(dp(10), dp(0), dp(4), dp(0))
+                    setOnClickListener {
+                        try {
+                            windowManager.removeView(rootLayout)
+                            activeOverlayView = null
+                        } catch (_: Exception) {}
+                    }
+                }
+                headerRow.addView(closeBtn)
+                cardLayout.addView(headerRow)
+
+                // Contact Name
+                val nameView = TextView(applicationContext).apply {
+                    text = match.name
+                    textSize = 22f
+                    setTextColor(Color.WHITE)
+                    typeface = Typeface.DEFAULT_BOLD
+                    setPadding(0, dp(4), 0, dp(2))
+                }
+                cardLayout.addView(nameView)
+
+                // Location / Area
+                if (!match.location.isNullOrBlank()) {
+                    val locationView = TextView(applicationContext).apply {
+                        text = "📍 Location: ${match.location}"
+                        textSize = 14f
+                        setTextColor(Color.parseColor("#E0E0E0"))
+                        setPadding(0, 0, 0, dp(2))
+                    }
+                    cardLayout.addView(locationView)
+                }
+
+                // Outreach Notes (if present)
+                if (!match.notes.isNullOrBlank()) {
+                    val notesView = TextView(applicationContext).apply {
+                        text = "📝 Notes: ${match.notes}"
+                        textSize = 13f
+                        setTextColor(Color.parseColor("#B0BEC5"))
+                        setPadding(0, 0, 0, dp(2))
+                    }
+                    cardLayout.addView(notesView)
+                }
+
+                // Last interaction outcome (if present)
+                if (!match.lastOutcome.isNullOrBlank()) {
+                    val followUpView = TextView(applicationContext).apply {
+                        text = "📞 Last interaction: ${match.lastOutcome}"
+                        textSize = 12f
+                        setTextColor(Color.parseColor("#80CBC4"))
+                        setPadding(0, dp(2), 0, 0)
+                    }
+                    cardLayout.addView(followUpView)
+                }
+
+                windowManager.addView(rootLayout, layoutParams)
+                activeOverlayView = rootLayout
+                Log.d(TAG, "Floating overlay card displayed successfully on screen!")
+
+                // Auto-dismiss floating card after 25 seconds
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (activeOverlayView == rootLayout) {
+                            windowManager.removeView(rootLayout)
+                            activeOverlayView = null
+                        }
+                    } catch (_: Exception) {}
+                }, 25000)
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to display floating overlay: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
     }
 
     /**
@@ -157,12 +382,11 @@ class EvangelismCallScreeningService : CallScreeningService() {
     }
 
     /**
-     * Posts a High-Priority Heads-Up Notification displaying the contact's details.
+     * Posts a High-Priority notification in the system drawer as a persistent log.
      */
     private fun showCallerNotification(match: ContactMatch) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Ensure NotificationChannel is configured
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -177,7 +401,6 @@ class EvangelismCallScreeningService : CallScreeningService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Tap action: opens app to the contact
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("contact_id", match.id)

@@ -44,4 +44,26 @@ class CallerIdService {
       return false;
     }
   }
+
+  /// Checks whether the app has permission to draw floating overlays ("Display over other apps").
+  static Future<bool> isOverlayPermissionGranted() async {
+    try {
+      final bool? isGranted =
+          await _channel.invokeMethod<bool>('isOverlayPermissionGranted');
+      return isGranted ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Opens the system settings screen for the user to grant "Display over other apps".
+  static Future<bool> requestOverlayPermission() async {
+    try {
+      final bool? success =
+          await _channel.invokeMethod<bool>('requestOverlayPermission');
+      return success ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
 }
