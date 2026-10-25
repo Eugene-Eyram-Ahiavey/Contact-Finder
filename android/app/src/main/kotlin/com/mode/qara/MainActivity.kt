@@ -72,6 +72,11 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                 }
+                "syncContactsToCallDirectory" -> {
+                    // Android CallScreeningService reads from local SQLite database in real-time,
+                    // so no pre-indexing export is required.
+                    result.success(true)
+                }
                 else -> {
                     result.notImplemented()
                 }

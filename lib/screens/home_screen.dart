@@ -94,6 +94,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _isLoading = false;
       });
     }
+
+    _syncCallDirectory();
+  }
+
+  Future<void> _syncCallDirectory() async {
+    try {
+      final all = _searchQuery.isEmpty
+          ? _allContacts
+          : await widget.database.getAllContacts();
+      await CallerIdService.syncContactsToCallDirectory(all);
+    } catch (_) {
+      // Non-critical; silently continue if channel call fails
+    }
   }
 
   void _applyFilter() {
@@ -610,6 +623,88 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildStatusBanner() {
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+
+    if (isIOS) {
+      if (_isCallerIdEnabled) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.teal.shade50,
+          child: Row(
+            children: [
+              Icon(Icons.check_circle, size: 20, color: Colors.teal.shade800),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'iOS Call Identification Active',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.teal.shade900,
+                      ),
+                    ),
+                    Text(
+                      'Incoming calls will show name and location',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: Colors.amber.shade50,
+        child: Row(
+          children: [
+            Icon(Icons.phone_disabled_outlined, size: 20, color: Colors.amber.shade900),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Caller ID Disabled',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                  Text(
+                    'Enable Qara in Settings ➔ Phone ➔ Call Blocking & Identification',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.amber.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => CallerIdService.openAppSettings(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final bool allActive = _isCallerIdEnabled && _isOverlayEnabled;
 
     if (allActive) {

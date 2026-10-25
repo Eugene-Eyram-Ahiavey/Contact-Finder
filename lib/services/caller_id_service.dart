@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:qara/models/contact.dart';
 
 /// CallerIdService
 ///
@@ -61,6 +62,43 @@ class CallerIdService {
     try {
       final bool? success =
           await _channel.invokeMethod<bool>('requestOverlayPermission');
+      return success ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Syncs contacts to the OS-level caller directory:
+  /// - On iOS: Formats sorted E.164 Int64 numbers, saves to App Group container,
+  ///   and triggers CXCallDirectoryManager to reload the extension.
+  /// - On Android: No-op (Android CallScreeningService reads from local SQLite in real-time).
+  static Future<bool> syncContactsToCallDirectory(List<Contact> contacts) async {
+    try {
+      final payload = contacts
+          .map((c) => {
+                'id': c.id,
+                'name': c.name,
+                'phone': c.phoneNumber,
+                'normalizedPhone': c.normalizedPhoneNumber,
+                'location': c.location,
+                'notes': c.notes,
+              })
+          .toList();
+      final bool? success = await _channel.invokeMethod<bool>(
+        'syncContactsToCallDirectory',
+        payload,
+      );
+      return success ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Opens the system application settings screen.
+  static Future<bool> openAppSettings() async {
+    try {
+      final bool? success =
+          await _channel.invokeMethod<bool>('openAppSettings');
       return success ?? false;
     } on PlatformException {
       return false;
