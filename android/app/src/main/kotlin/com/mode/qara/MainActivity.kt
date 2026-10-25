@@ -1,4 +1,4 @@
-package com.mode.evangelism_caller_id
+package com.mode.qara
 
 import android.Manifest
 import android.app.Activity
@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "com.mode.evangelism_caller_id/caller_id"
+    private val CHANNEL = "com.mode.qara/caller_id"
     private val REQUEST_ID_CALL_SCREENING = 1001
     private val REQUEST_ID_NOTIFICATION_PERMISSION = 1002
     private var pendingResult: MethodChannel.Result? = null
@@ -82,8 +82,8 @@ class MainActivity : FlutterActivity() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "evangelism_caller_id",
-                "Evangelism Caller ID",
+                "qara_caller_id",
+                "Qara Caller ID",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Shows caller identity for known evangelism contacts"

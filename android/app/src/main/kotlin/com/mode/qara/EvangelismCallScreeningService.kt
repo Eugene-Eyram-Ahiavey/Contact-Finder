@@ -1,4 +1,4 @@
-package com.mode.evangelism_caller_id
+package com.mode.qara
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -49,8 +49,8 @@ class EvangelismCallScreeningService : CallScreeningService() {
 
     companion object {
         private const val TAG = "CallScreeningService"
-        const val CHANNEL_ID = "evangelism_caller_id"
-        const val CHANNEL_NAME = "Evangelism Caller ID"
+        const val CHANNEL_ID = "qara_caller_id"
+        const val CHANNEL_NAME = "Qara Caller ID"
 
         // Static reference to track active overlay across instances
         private var activeOverlayView: View? = null
@@ -228,7 +228,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                 }
 
                 val badge = TextView(applicationContext).apply {
-                    text = "✝ CALLFINDER • OUTREACH CONTACT"
+                    text = "✝ QARA • OUTREACH CONTACT"
                     textSize = 11f
                     setTextColor(Color.parseColor("#90CAF9"))
                     typeface = Typeface.DEFAULT_BOLD
@@ -347,7 +347,8 @@ class EvangelismCallScreeningService : CallScreeningService() {
      * Queries the app's SQLite database directly from native Kotlin.
      */
     private fun lookupContact(normalized: String?, raw: String): ContactMatch? {
-        val dbFile = applicationContext.getDatabasePath("evangelism_caller_id.db")
+        val dbFile = applicationContext.getDatabasePath("qara.db").takeIf { it.exists() }
+            ?: applicationContext.getDatabasePath("evangelism_caller_id.db")
         if (!dbFile.exists()) {
             Log.w(TAG, "SQLite DB file does not exist yet at: ${dbFile.absolutePath}")
             return null
@@ -435,7 +436,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                 append("Last: ")
                 append(match.lastOutcome)
             }
-        }.ifEmpty { "Evangelism Outreach Contact" }
+        }.ifEmpty { "Qara Outreach Contact" }
 
         val bigText = buildString {
             append("Phone: ").append(match.rawPhone)

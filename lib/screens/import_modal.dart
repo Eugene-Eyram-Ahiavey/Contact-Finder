@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:evangelism_caller_id/database/app_database.dart';
-import 'package:evangelism_caller_id/services/contact_importer.dart';
-import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+import 'package:qara/database/app_database.dart';
+import 'package:qara/services/contact_importer.dart';
+import 'package:qara/utils/phone_number_normalizer.dart';
 
 /// ImportNotesModal
 ///

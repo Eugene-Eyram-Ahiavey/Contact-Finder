@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evangelism_caller_id/models/contact.dart';
-import 'package:evangelism_caller_id/models/interaction.dart';
+import 'package:qara/models/contact.dart';
+import 'package:qara/models/interaction.dart';
 
 void main() {
   group('Contact Model Tests', () {

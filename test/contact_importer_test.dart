@@ -1,6 +1,6 @@
 import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evangelism_caller_id/services/contact_importer.dart';
+import 'package:qara/services/contact_importer.dart';
 
 void main() {
   group('ContactImporter Tests', () {

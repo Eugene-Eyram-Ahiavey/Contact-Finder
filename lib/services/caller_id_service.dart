@@ -13,7 +13,7 @@ import 'package:flutter/services.dart';
 class CallerIdService {
   // Unique channel identifier shared between Dart, Android (MainActivity.kt), and iOS (AppDelegate.swift)
   static const MethodChannel _channel =
-      MethodChannel('com.mode.evangelism_caller_id/caller_id');
+      MethodChannel('com.mode.qara/caller_id');
 
   /// Checks whether the app currently holds the OS-level caller identification permission/role:
   /// - On Android: Checks `RoleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)`.

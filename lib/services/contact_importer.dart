@@ -1,7 +1,7 @@
 import 'package:excel/excel.dart';
 import 'package:uuid/uuid.dart';
-import 'package:evangelism_caller_id/models/contact.dart';
-import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+import 'package:qara/models/contact.dart';
+import 'package:qara/utils/phone_number_normalizer.dart';
 
 /// Result of parsing an imported text or spreadsheet.
 class ImportBatchResult {

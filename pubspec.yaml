@@ -1,5 +1,5 @@
-name: evangelism_caller_id
-description: "Evangelism contact caller identification app"
+name: qara
+description: "Qara - Evangelism contact caller identification app"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:evangelism_caller_id/database/app_database.dart';
-import 'package:evangelism_caller_id/models/contact.dart';
-import 'package:evangelism_caller_id/models/interaction.dart';
+import 'package:qara/database/app_database.dart';
+import 'package:qara/models/contact.dart';
+import 'package:qara/models/interaction.dart';
 
 void main() {
   // Setup sqflite ffi for desktop/local unit testing

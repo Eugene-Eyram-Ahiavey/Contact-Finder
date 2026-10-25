@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evangelism_caller_id/services/caller_id_service.dart';
+import 'package:qara/services/caller_id_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.mode.evangelism_caller_id/caller_id');
+  const channel = MethodChannel('com.mode.qara/caller_id');
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

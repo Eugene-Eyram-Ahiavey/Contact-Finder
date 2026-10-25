@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'package:evangelism_caller_id/database/app_database.dart';
-import 'package:evangelism_caller_id/models/contact.dart';
-import 'package:evangelism_caller_id/screens/contact_detail_modal.dart';
-import 'package:evangelism_caller_id/screens/import_modal.dart';
-import 'package:evangelism_caller_id/services/caller_id_service.dart';
-import 'package:evangelism_caller_id/services/phone_dialer_service.dart';
-import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+import 'package:qara/database/app_database.dart';
+import 'package:qara/models/contact.dart';
+import 'package:qara/screens/contact_detail_modal.dart';
+import 'package:qara/screens/import_modal.dart';
+import 'package:qara/services/caller_id_service.dart';
+import 'package:qara/services/phone_dialer_service.dart';
+import 'package:qara/utils/phone_number_normalizer.dart';
 
 /// HomeScreen
 ///

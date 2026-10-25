@@ -4,7 +4,7 @@ import CallKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
-  private let channelName = "com.mode.evangelism_caller_id/caller_id"
+  private let channelName = "com.mode.qara/caller_id"
 
   override func application(
     _ application: UIApplication,
@@ -18,7 +18,7 @@ import CallKit
         case "isCallScreeningRoleHeld":
           // In Milestone 1 skeleton, check iOS Call Directory Extension enabled status
           CXCallDirectoryManager.sharedInstance.getEnabledStatusForExtension(
-            withIdentifier: "com.mode.evangelism_caller_id.CallDirectoryExtension"
+            withIdentifier: "com.mode.qara.CallDirectoryExtension"
           ) { (status, error) in
             DispatchQueue.main.async {
               if let _ = error {

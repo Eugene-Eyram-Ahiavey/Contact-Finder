@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+import 'package:qara/utils/phone_number_normalizer.dart';
 
 void main() {
   group('PhoneNumberNormalizer Tests', () {

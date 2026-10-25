@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evangelism_caller_id/services/phone_dialer_service.dart';
+import 'package:qara/services/phone_dialer_service.dart';
 
 void main() {
   group('PhoneDialerService Tests', () {

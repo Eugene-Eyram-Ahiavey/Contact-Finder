@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mode.evangelism_caller_id"
+    namespace = "com.mode.qara"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.mode.evangelism_caller_id"
+        applicationId = "com.mode.qara"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 29 // Android 10+ required for CallScreeningService

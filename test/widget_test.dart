@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:evangelism_caller_id/database/app_database.dart';
-import 'package:evangelism_caller_id/main.dart';
+import 'package:qara/database/app_database.dart';
+import 'package:qara/main.dart';
 
 void main() {
   setUpAll(() {
@@ -10,7 +10,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  const channel = MethodChannel('com.mode.evangelism_caller_id/caller_id');
+  const channel = MethodChannel('com.mode.qara/caller_id');
   late Database rawDb;
   late AppDatabase appDb;
 

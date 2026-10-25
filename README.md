@@ -82,7 +82,7 @@ See [docs/FEASIBILITY.md](docs/FEASIBILITY.md) for the technical feasibility ass
 ## Project Structure
 
 ```
-evangelism_caller_id/
+qara/
 ├── lib/                      # Flutter/Dart application code
 │   ├── main.dart             # App entry point
 │   ├── database/

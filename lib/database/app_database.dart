@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
-import 'package:evangelism_caller_id/models/contact.dart';
-import 'package:evangelism_caller_id/models/interaction.dart';
-import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
+import 'package:qara/models/contact.dart';
+import 'package:qara/models/interaction.dart';
+import 'package:qara/utils/phone_number_normalizer.dart';
 
 /// AppDatabase
 ///
@@ -14,7 +15,8 @@ import 'package:evangelism_caller_id/utils/phone_number_normalizer.dart';
 /// 3. Interaction History: Follow-ups are stored in a relational `interactions` table
 ///    linked to contacts by `contact_id`.
 class AppDatabase {
-  static const String databaseName = 'evangelism_caller_id.db';
+  static const String databaseName = 'qara.db';
+  static const String legacyDatabaseName = 'evangelism_caller_id.db';
   static const int databaseVersion = 1;
 
   static const String tableContacts = 'contacts';
@@ -38,6 +40,17 @@ class AppDatabase {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, databaseName);
+    final legacyPath = p.join(dbPath, legacyDatabaseName);
+
+    try {
+      final legacyFile = File(legacyPath);
+      final newFile = File(path);
+      if (await legacyFile.exists() && !await newFile.exists()) {
+        await legacyFile.copy(path);
+      }
+    } catch (_) {
+      // In-memory or platform where File is not supported
+    }
 
     return await openDatabase(
       path,
