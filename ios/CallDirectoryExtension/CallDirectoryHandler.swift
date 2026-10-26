@@ -41,17 +41,20 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
             // 1. Valid Int64 E.164 phone numbers (e.g. 233244123456)
             // 2. Strict ascending numerical order
             // 3. Zero duplicates
-            var seenNumbers = Set<Int64>()
-            for entry in entries {
-                if entry.phoneNumber > 0 && !seenNumbers.contains(entry.phoneNumber) {
-                    seenNumbers.insert(entry.phoneNumber)
+            let sortedEntries = entries.sorted { $0.phoneNumber < $1.phoneNumber }
+            var lastPhoneNumber: Int64 = 0
+            var addedCount = 0
+            for entry in sortedEntries {
+                if entry.phoneNumber > lastPhoneNumber {
+                    lastPhoneNumber = entry.phoneNumber
                     context.addIdentificationEntry(
                         withNextSequentialPhoneNumber: entry.phoneNumber,
                         label: entry.label
                     )
+                    addedCount += 1
                 }
             }
-            NSLog("[Qara] CallDirectoryExtension loaded %ld caller ID entries", seenNumbers.count)
+            NSLog("[Qara] CallDirectoryExtension loaded %ld caller ID entries", addedCount)
         } catch {
             NSLog("[Qara] Error loading contacts directory: %@", error.localizedDescription)
         }

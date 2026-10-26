@@ -74,7 +74,10 @@ import CallKit
       let rawPhone = (contact["normalizedPhone"] as? String)
         ?? (contact["phone"] as? String)
         ?? ""
-      let digits = rawPhone.filter { $0.isNumber }
+      var digits = rawPhone.filter { $0.isNumber }
+      if digits.hasPrefix("0") && digits.count == 10 {
+        digits = "233" + String(digits.dropFirst())
+      }
       guard let phoneInt = Int64(digits), phoneInt > 0 else {
         continue
       }
