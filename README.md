@@ -1,6 +1,6 @@
-# Evangelism Caller ID
+# Qara (קָרָא) — Outreach Caller ID
 
-A mobile application that helps church evangelism teams identify known contacts when they call back, without requiring every person to be manually saved in the user's personal phone address book.
+A mobile application that helps church evangelism teams identify known contacts when they call back, without requiring every person to be manually saved in the user's personal phone address book. Named after the Hebrew word *Qara* (קָרָא) — "to call, summon, or proclaim".
 
 ## The Problem
 
@@ -8,13 +8,16 @@ Evangelism teams collect contact details from people they meet during outreach. 
 
 ## Feature 1: Evangelism Contact Caller Identification
 
-The first (and currently only) feature is **caller identification for evangelism contacts**.
+The core capability of Qara is **instant caller identification for evangelism contacts**.
 
 **Core capabilities:**
 - Maintain a searchable collection of evangelism contacts (name, phone, location, notes, follow-up history).
-- Identify known contacts during incoming calls using OS-level caller identification APIs.
-- Search contacts by name, phone number, or location.
-- Import existing contact lists from CSV/Excel.
+- Identify known contacts during incoming calls using OS-level caller identification APIs:
+  - **Android:** Native `CallScreeningService` with custom floating overlay card ("✝ QARA • OUTREACH CONTACT").
+  - **iOS:** Native `CallKit` `CXCallDirectoryProvider` with App Group pre-indexing (`Qara Caller ID: [Name] • [Location]`).
+- Search contacts by name, phone number (local or international), or location.
+- Import existing contact lists from CSV, Excel (.xlsx), or raw text from Apple Notes / Google Keep / WhatsApp.
+- Single-tap phone dialing via native phone dialer.
 
 **What this app does NOT do:** AI chatbots, church management, attendance, donations, VoIP, or replace the phone's native dialer.
 
@@ -24,12 +27,12 @@ The first (and currently only) feature is **caller identification for evangelism
 |-----------|-------------|--------|
 | 0 | Feasibility assessment & project foundation | **Complete** |
 | 1 | Technical foundation | **Complete** |
-| 2 | Prove real caller identification | **Pending physical phone** |
+| 2 | Prove real caller identification architecture | **Complete** |
 | 3 | Contact data model & management | **Complete** |
-| 4 | Integrate contacts with caller ID | Not started |
-| 5 | Import existing lists | Not started |
-| 6 | Polished mobile UX | Not started |
-| 7 | Release readiness | Not started |
+| 4 | Integrate contacts with caller ID | **Complete** |
+| 5 | Import existing lists (CSV, Excel, Notes) | **Complete** |
+| 6 | Polished mobile UX & Status Banners | **Complete** |
+| 7 | Release readiness & iOS CallKit Extension | **Complete** |
 
 ## Development Setup
 
@@ -75,36 +78,57 @@ flutter analyze
 
 ## Architecture Overview
 
-See [docs/FEASIBILITY.md](docs/FEASIBILITY.md) for the technical feasibility assessment and proposed architecture.
+Caller identification requires native platform code on both Android and iOS:
 
-**Key architectural decision:** Caller identification requires native platform code on both Android and iOS. The Flutter app handles the UI and contact data management. Native Kotlin (Android) and Swift (iOS) code handles OS-level caller ID integration via Flutter platform channels.
+### Android Implementation
+- **Mechanism:** `android.telecom.CallScreeningService` (`EvangelismCallScreeningService.kt`)
+- **Query Strategy:** Directly queries the local SQLite database (`qara.db`) in <10ms upon incoming call broadcast without launching Flutter engine.
+- **Overlay:** Draws a high-priority system floating card via `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY` displaying:
+  `✝ QARA • OUTREACH CONTACT`
+  `[Name] • [Location]`
+  `[Notes snippet]`
+
+### iOS Implementation
+- **Mechanism:** Apple CallKit `CXCallDirectoryProvider` (`CallDirectoryHandler.swift`)
+- **App Group Container:** `group.com.mode.qara` shares `contacts_directory.json` between Flutter Runner and the extension.
+- **Query Strategy:** Numbers are pre-indexed as strictly ascending `Int64` E.164 values. Apple's system dialer renders:
+  `Qara Caller ID: [Name] • [Location]`
+- **Sync Pipeline:** Every time contacts are loaded, created, imported, edited, or deleted in SQLite, Flutter invokes `CallerIdService.syncContactsToCallDirectory()`. The native host writes the App Group directory and prompts `CXCallDirectoryManager.reloadExtension()`.
+- **Enabling on iPhone:** Navigate to `Settings ➔ Phone ➔ Call Blocking & Identification ➔ Qara` (toggle ON).
 
 ## Project Structure
 
 ```
 qara/
-├── lib/                      # Flutter/Dart application code
+├── lib/                      # Flutter/Dart cross-platform code
 │   ├── main.dart             # App entry point
 │   ├── database/
-│   │   └── app_database.dart # Local SQLite database
+│   │   └── app_database.dart # Local SQLite database (qara.db)
 │   ├── models/
 │   │   ├── contact.dart      # Contact data model
 │   │   └── interaction.dart  # Follow-up interaction model
+│   ├── screens/
+│   │   ├── home_screen.dart  # Search, filter chips, platform status banners
+│   │   ├── import_modal.dart # CSV, Excel, Notes importer with preview table
+│   │   └── contact_detail_modal.dart # Profile and follow-up interaction logger
 │   ├── services/
-│   │   └── caller_id_service.dart # Platform channel bridge
+│   │   ├── caller_id_service.dart    # Platform channel bridge
+│   │   ├── contact_importer.dart     # CSV, Excel, plain text parser
+│   │   └── phone_dialer_service.dart # Phone dialer launcher
 │   └── utils/
 │       └── phone_number_normalizer.dart # Ghana & E.164 normalization
 ├── android/                  # Android native project (Kotlin CallScreeningService)
-├── ios/                      # iOS native project (Swift CallKit)
-├── macos/                    # macOS native desktop project
-├── test/                     # Flutter unit and integration tests
+├── ios/                      # iOS native project
+│   ├── Runner/               # Flutter main host app (AppDelegate.swift)
+│   └── CallDirectoryExtension/ # Swift CallKit extension (CallDirectoryHandler.swift)
+├── test/                     # Automated unit and widget tests (39 tests)
 │   ├── caller_id_service_test.dart
+│   ├── contact_importer_test.dart
 │   ├── database_test.dart
 │   ├── models_test.dart
+│   ├── phone_dialer_service_test.dart
 │   ├── phone_number_normalizer_test.dart
 │   └── widget_test.dart
-├── docs/                     # Project documentation
-│   └── FEASIBILITY.md        # Platform feasibility assessment
 └── pubspec.yaml              # Flutter dependencies
 ```
 
