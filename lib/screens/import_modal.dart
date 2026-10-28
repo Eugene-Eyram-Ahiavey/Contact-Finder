@@ -161,197 +161,247 @@ class _ImportNotesModalState extends State<ImportNotesModal> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isPreviewing = _previewResult != null;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final totalHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      onVerticalDragUpdate: (details) {
+        if (details.primaryDelta != null && details.primaryDelta! > 5) {
+          FocusScope.of(context).unfocus();
+        }
+      },
+      child: Container(
+        height: totalHeight * 0.88,
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: keyboardHeight > 0 ? keyboardHeight + 12 : 16,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
 
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isPreviewing ? 'Preview Contacts' : 'Import Contacts',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueGrey.shade900,
-                      ),
-                    ),
-                    if (widget.callCenterName != null)
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'Target: ${widget.callCenterName}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.indigo.shade700,
-                          fontWeight: FontWeight.w600,
+                        isPreviewing ? 'Preview Contacts' : 'Import Contacts',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey.shade900,
                         ),
                       ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          if (!isPreviewing) ...[
-            Text(
-              'Pick a CSV or Excel spreadsheet file, or paste your notes directly below. '
-              'Names, phone numbers, locations, and notes will be extracted automatically.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // File Upload Action Banner
-            InkWell(
-              onTap: _isLoadingFile ? null : _pickSpreadsheetFile,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.indigo.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.shade600,
-                        shape: BoxShape.circle,
-                      ),
-                      child: _isLoadingFile
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.upload_file, color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedFileName ?? 'Upload Spreadsheet File (.csv, .xlsx)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo.shade900,
-                              fontSize: 14,
-                            ),
+                      if (widget.callCenterName != null)
+                        Text(
+                          'Target: ${widget.callCenterName}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.indigo.shade700,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Auto-detects Name, Phone, Location, and Notes columns',
-                            style: TextStyle(
-                              color: Colors.indigo.shade700,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, color: Colors.indigo.shade400),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    'OR PASTE RAW NOTES',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold),
+                        ),
+                    ],
                   ),
                 ),
-                Expanded(child: Divider(color: Colors.grey.shade300)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // Text Input Field
-            Expanded(
-              child: TextField(
-                controller: _textController,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: InputDecoration(
-                  hintText: 'Paste notes or WhatsApp lines here...\n\nExamples:\n'
-                      '• Kofi Mensah - 0244123456 - Tema - Prayed for healing\n'
-                      '• Ama Serwaa, 0551122334, Spintex\n'
-                      '• 0277889900 - Kwabena (Madina)\n'
-                      '• Pastor John: 0201234567',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+            if (!isPreviewing) ...[
+              if (keyboardHeight == 0) ...[
+                Text(
+                  'Pick a CSV or Excel spreadsheet file, or paste your notes directly below. '
+                  'Names, phone numbers, locations, and notes will be extracted automatically.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
                   ),
                 ),
-              ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _parsePastedText,
-              icon: const Icon(Icons.table_chart_outlined),
-              label: const Text('Parse & Preview Contacts'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
+                const SizedBox(height: 12),
+
+                // File Upload Action Banner
+                InkWell(
+                  onTap: _isLoadingFile ? null : _pickSpreadsheetFile,
                   borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.indigo.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade600,
+                            shape: BoxShape.circle,
+                          ),
+                          child: _isLoadingFile
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Icon(Icons.upload_file, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedFileName ?? 'Upload Spreadsheet File (.csv, .xlsx)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Auto-detects Name, Phone, Location, and Notes columns',
+                                style: TextStyle(
+                                  color: Colors.indigo.shade700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: Colors.indigo.shade400),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'PASTE RAW NOTES',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (keyboardHeight > 0)
+                    InkWell(
+                      onTap: () => FocusScope.of(context).unfocus(),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.keyboard_hide_outlined, size: 14, color: Colors.indigo.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Dismiss keyboard',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.indigo.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Text Input Field with downward swipe detection
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      if (notification.scrollDelta != null && notification.scrollDelta! < -6) {
+                        FocusScope.of(context).unfocus();
+                      }
+                    }
+                    return false;
+                  },
+                  child: TextField(
+                    controller: _textController,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(
+                      hintText: 'Paste notes or WhatsApp lines here...\n\nExamples:\n'
+                          '• Kofi Mensah - 0244123456 - Tema - Prayed for healing\n'
+                          '• Ama Serwaa, 0551122334, Spintex\n'
+                          '• 0277889900 - Kwabena (Madina)\n'
+                          '• Pastor John: 0201234567',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ] else ...[
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: _parsePastedText,
+                icon: const Icon(Icons.table_chart_outlined),
+                label: const Text('Parse & Preview Contacts'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ] else ...[
             // Preview Stats Bar
             Container(
               padding: const EdgeInsets.all(12),

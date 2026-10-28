@@ -148,5 +148,27 @@ Kofi Duplicate - 024 412 3456 - Accra
       expect(result.validContacts.length, 1);
       expect(result.validContacts[0].callCenterId, 'center-madina');
     });
+
+    test('parses numbered lists and classifies status notes cleanly', () {
+      const sample = '''
+26. Sebastian - 0533368886
+27. Mujez - 0507404414 - no answer
+28. Kojo - 0534511027 - wrong
+''';
+
+      final result = ContactImporter.parseText(sample);
+      expect(result.validContacts.length, 3);
+
+      expect(result.validContacts[0].name, 'Sebastian');
+      expect(result.validContacts[0].phoneNumber, '0533368886');
+
+      expect(result.validContacts[1].name, 'Mujez');
+      expect(result.validContacts[1].phoneNumber, '0507404414');
+      expect(result.validContacts[1].notes, 'no answer');
+
+      expect(result.validContacts[2].name, 'Kojo');
+      expect(result.validContacts[2].phoneNumber, '0534511027');
+      expect(result.validContacts[2].notes, 'wrong');
+    });
   });
 }

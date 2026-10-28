@@ -126,14 +126,33 @@ class ContactImporter {
       String? notes;
 
       if (parts.isNotEmpty) {
-        name = parts[0];
+        name = parts[0]
+            .replaceFirst(RegExp(r'^(?:\d+[\.\)\-:]\s*|[•\*\-\+]\s*)'), '')
+            .trim();
+        if (name.isEmpty) {
+          name = 'Unknown Contact';
+        }
       }
 
-      if (parts.length > 1) {
+      if (parts.length == 2) {
+        final text = parts[1];
+        final lower = text.toLowerCase();
+        final isLikelyNote = lower.contains('answer') ||
+            lower.contains('wrong') ||
+            lower.contains('busy') ||
+            lower.contains('off') ||
+            lower.contains('call') ||
+            lower.contains('pray') ||
+            lower.contains('reach') ||
+            lower.contains('not') ||
+            lower.contains('later');
+        if (isLikelyNote) {
+          notes = text;
+        } else {
+          location = text;
+        }
+      } else if (parts.length > 2) {
         location = parts[1];
-      }
-
-      if (parts.length > 2) {
         notes = parts.sublist(2).join(' - ');
       }
 

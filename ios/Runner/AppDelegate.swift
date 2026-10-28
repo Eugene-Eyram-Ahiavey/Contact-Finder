@@ -5,7 +5,7 @@ import CallKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let channelName = "com.mode.qara/caller_id"
-  private let extensionIdentifier = "com.mode.qara.CallDirectoryExtension"
+  private let extensionIdentifier = "com.kobe.qara.CallDirectoryExtension"
   private let appGroupId = "group.com.mode.qara"
   private let directoryFileName = "contacts_directory.json"
 

@@ -654,24 +654,27 @@ class _CallCentersScreenState extends State<CallCentersScreen>
         );
       }
 
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: Colors.amber.shade50,
-        child: Row(
-          children: [
-            Icon(Icons.phone_disabled_outlined, size: 20, color: Colors.amber.shade900),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Enable Qara in Settings ➔ Phone ➔ Call Blocking & Identification',
-                style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+      return InkWell(
+        onTap: _showIOSCallKitGuideDialog,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.amber.shade50,
+          child: Row(
+            children: [
+              Icon(Icons.phone_disabled_outlined, size: 20, color: Colors.amber.shade900),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Enable Qara in Settings ➔ Phone ➔ Call Blocking & Identification',
+                  style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () => CallerIdService.openAppSettings(),
-              child: const Text('Settings'),
-            ),
-          ],
+              TextButton(
+                onPressed: _showIOSCallKitGuideDialog,
+                child: const Text('Guide'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -724,6 +727,97 @@ class _CallCentersScreenState extends State<CallCentersScreen>
               _checkCallerIdStatus();
             },
             child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showIOSCallKitGuideDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.phone_callback_rounded, color: Colors.indigo),
+            SizedBox(width: 8),
+            Text('Enable Caller ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Apple requires Call Directory extensions to be activated manually in your iPhone Settings for privacy:\n',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            _buildGuideStep('1', 'Open your iPhone Settings app'),
+            _buildGuideStep('2', 'Scroll down and tap Phone'),
+            _buildGuideStep('3', 'Tap Call Blocking & Identification'),
+            _buildGuideStep('4', 'Turn the switch ON for Qara', isHighlighted: true),
+            const SizedBox(height: 12),
+            Text(
+              'Once enabled, incoming calls from your outreach contacts will instantly show their name and Call Center.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              CallerIdService.openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideStep(String number, String text, {bool isHighlighted = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isHighlighted ? Colors.teal.shade700 : Colors.indigo.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isHighlighted ? Colors.white : Colors.indigo.shade900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
+                color: isHighlighted ? Colors.teal.shade900 : Colors.black87,
+              ),
+            ),
           ),
         ],
       ),
