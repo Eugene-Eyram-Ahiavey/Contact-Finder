@@ -141,5 +141,12 @@ Kofi Duplicate - 024 412 3456 - Accra
       expect(second.location, 'Cantonments');
       expect(second.notes, 'Bible study invite');
     });
+
+    test('binds parsed contacts to specified callCenterId', () {
+      const notes = 'Samuel Addo - 0241239876 - Madina';
+      final result = ContactImporter.parseText(notes, callCenterId: 'center-madina');
+      expect(result.validContacts.length, 1);
+      expect(result.validContacts[0].callCenterId, 'center-madina');
+    });
   });
 }

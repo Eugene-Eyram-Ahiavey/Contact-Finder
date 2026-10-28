@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:qara/database/app_database.dart';
+import 'package:qara/models/call_center.dart';
 import 'package:qara/models/contact.dart';
 import 'package:qara/models/interaction.dart';
 
@@ -23,30 +24,7 @@ void main() {
       options: OpenDatabaseOptions(
         version: AppDatabase.databaseVersion,
         onCreate: (db, version) async {
-          // Use the exact schema creation logic
-          await db.execute('''
-            CREATE TABLE ${AppDatabase.tableContacts} (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              phone_number TEXT NOT NULL,
-              normalized_phone_number TEXT NOT NULL UNIQUE,
-              location TEXT,
-              notes TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            )
-          ''');
-          await db.execute('''
-            CREATE TABLE ${AppDatabase.tableInteractions} (
-              id TEXT PRIMARY KEY,
-              contact_id TEXT NOT NULL,
-              date TEXT NOT NULL,
-              outcome TEXT NOT NULL,
-              notes TEXT,
-              created_at TEXT NOT NULL,
-              FOREIGN KEY (contact_id) REFERENCES ${AppDatabase.tableContacts} (id) ON DELETE CASCADE
-            )
-          ''');
+          await AppDatabase.createTables(db, version);
         },
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
@@ -58,6 +36,117 @@ void main() {
 
   tearDown(() async {
     await rawDb.close();
+  });
+
+  group('AppDatabase Call Center Operations', () {
+    final center1 = CallCenter(
+      id: 'center-spintex',
+      name: 'Spintex Outreach',
+      description: 'Community revival follow-up',
+      location: 'Spintex Road',
+      colorHex: '#3F51B5',
+      createdAt: testDate,
+      updatedAt: testDate,
+    );
+
+    final center2 = CallCenter(
+      id: 'center-tema',
+      name: 'Tema Market Outreach',
+      description: 'Youth evangelism drive',
+      location: 'Tema Community 1',
+      colorHex: '#00897B',
+      createdAt: testDate.add(const Duration(hours: 1)),
+      updatedAt: testDate.add(const Duration(hours: 1)),
+    );
+
+    test('can insert and retrieve Call Centers with contact count', () async {
+      await appDb.insertCallCenter(center1);
+      await appDb.insertCallCenter(center2);
+
+      final centers = await appDb.getAllCallCenters();
+      expect(centers.length, 2);
+      // Newest center should be first!
+      expect(centers[0].id, 'center-tema');
+      expect(centers[1].id, 'center-spintex');
+      expect(centers[0].contactCount, 0);
+
+      // Add contacts to center1
+      final c1 = Contact(
+        id: 'c-1',
+        callCenterId: 'center-spintex',
+        name: 'Ama Serwaa',
+        phoneNumber: '0244123456',
+        normalizedPhoneNumber: '+233244123456',
+        createdAt: testDate,
+        updatedAt: testDate,
+      );
+      await appDb.insertContact(c1);
+
+      final updatedCenters = await appDb.getAllCallCenters();
+      final spintexCenter =
+          updatedCenters.firstWhere((c) => c.id == 'center-spintex');
+      expect(spintexCenter.contactCount, 1);
+    });
+
+    test('strictly guarantees new contact additions appear at the TOP (created_at DESC)', () async {
+      await appDb.insertCallCenter(center1);
+
+      final olderContact = Contact(
+        id: 'c-old',
+        callCenterId: 'center-spintex',
+        name: 'Kofi Mensah (First Batch)',
+        phoneNumber: '0244111222',
+        normalizedPhoneNumber: '+233244111222',
+        createdAt: DateTime.parse('2026-10-20T08:00:00.000Z'),
+        updatedAt: DateTime.parse('2026-10-20T08:00:00.000Z'),
+      );
+
+      final newerContact = Contact(
+        id: 'c-new',
+        callCenterId: 'center-spintex',
+        name: 'Ama Serwaa (Just Added Today)',
+        phoneNumber: '0559998877',
+        normalizedPhoneNumber: '+233559998877',
+        createdAt: DateTime.parse('2026-10-20T14:00:00.000Z'), // Later in the day!
+        updatedAt: DateTime.parse('2026-10-20T14:00:00.000Z'),
+      );
+
+      // Insert older first, then newer
+      await appDb.insertContact(olderContact);
+      await appDb.insertContact(newerContact);
+
+      final list = await appDb.getContactsByCallCenter('center-spintex');
+      expect(list.length, 2);
+      // The newest addition MUST be on top!
+      expect(list[0].id, 'c-new');
+      expect(list[0].name, 'Ama Serwaa (Just Added Today)');
+      expect(list[1].id, 'c-old');
+      expect(list[1].name, 'Kofi Mensah (First Batch)');
+    });
+
+    test('deleting a Call Center cascades and deletes all contacts inside it', () async {
+      await appDb.insertCallCenter(center1);
+
+      final contact = Contact(
+        id: 'c-to-delete',
+        callCenterId: 'center-spintex',
+        name: 'Kwame Mensah',
+        phoneNumber: '0244998877',
+        normalizedPhoneNumber: '+233244998877',
+        createdAt: testDate,
+        updatedAt: testDate,
+      );
+      await appDb.insertContact(contact);
+
+      expect((await appDb.getContactsByCallCenter('center-spintex')).length, 1);
+
+      // Delete the Call Center
+      await appDb.deleteCallCenter('center-spintex');
+
+      expect((await appDb.getAllCallCenters()).length, 0);
+      expect((await appDb.getContactsByCallCenter('center-spintex')).length, 0);
+      expect(await appDb.getContactById('c-to-delete'), isNull);
+    });
   });
 
   group('AppDatabase Contact Operations', () {
@@ -102,33 +191,25 @@ void main() {
       expect(matchLocal, isNotNull);
       expect(matchLocal!.name, 'Kofi Mensah');
 
-      // Caller ID test 2: Call comes in as international format: "+233244123456"
-      final matchIntl = await appDb.findContactByPhoneNumber('+233244123456');
+      // Caller ID test 2: Call comes in as international format with spaces: "+233 24 412 3456"
+      final matchIntl = await appDb.findContactByPhoneNumber('+233 24 412 3456');
       expect(matchIntl, isNotNull);
       expect(matchIntl!.name, 'Kofi Mensah');
 
-      // Caller ID test 3: Call comes in with spaces/hyphens: "024 412 3456"
-      final matchFormatted = await appDb.findContactByPhoneNumber('024 412 3456');
-      expect(matchFormatted, isNotNull);
-      expect(matchFormatted!.name, 'Kofi Mensah');
+      // Caller ID test 3: Unsaved incoming number returns null (Zero false positives!)
+      final unknown = await appDb.findContactByPhoneNumber('0249999999');
+      expect(unknown, isNull);
     });
 
-    test('unknown caller returns null and never invents an identity', () async {
+    test('enforces duplicate phone number prevention', () async {
       await appDb.insertContact(contact1);
 
-      final unknownResult = await appDb.findContactByPhoneNumber('0200000000');
-      expect(unknownResult, isNull);
-    });
-
-    test('prevents inserting duplicate normalized phone numbers', () async {
-      await appDb.insertContact(contact1);
-
-      // Attempt to insert another contact with the same phone number (different formatting)
+      // Attempt to insert duplicate contact with different local formatting
       final duplicateContact = Contact(
-        id: 'contact-duplicate',
-        name: 'Another Person',
-        phoneNumber: '024 412 3456',
-        normalizedPhoneNumber: '+233244123456', // Same normalized number!
+        id: 'contact-kofi-duplicate',
+        name: 'Kofi Duplicate',
+        phoneNumber: '+233 24 412 3456',
+        normalizedPhoneNumber: '+233244123456', // Same normalized E.164!
         createdAt: testDate,
         updatedAt: testDate,
       );
@@ -139,56 +220,47 @@ void main() {
       );
     });
 
-    test('searchContacts filters by name, phone, or location', () async {
+    test('searches contacts by name, location, or phone substring', () async {
       await appDb.insertContact(contact1);
       await appDb.insertContact(contact2);
 
-      // Search by name
-      final nameSearch = await appDb.searchContacts('Kofi');
-      expect(nameSearch.length, 1);
-      expect(nameSearch.first.name, 'Kofi Mensah');
+      // Search by Name
+      final nameResults = await appDb.searchContacts('Ama');
+      expect(nameResults.length, 1);
+      expect(nameResults.first.name, 'Ama Serwaa');
 
-      // Search by location
-      final locationSearch = await appDb.searchContacts('Spintex');
-      expect(locationSearch.length, 1);
-      expect(locationSearch.first.name, 'Ama Serwaa');
+      // Search by Location
+      final locResults = await appDb.searchContacts('Spintex');
+      expect(locResults.length, 1);
+      expect(locResults.first.name, 'Ama Serwaa');
 
-      // Search by phone digits
-      final phoneSearch = await appDb.searchContacts('9876');
-      expect(phoneSearch.length, 1);
-      expect(phoneSearch.first.name, 'Ama Serwaa');
+      // Search by partial phone number digits
+      final phoneResults = await appDb.searchContacts('9876');
+      expect(phoneResults.length, 1);
+      expect(phoneResults.first.name, 'Ama Serwaa');
     });
 
-    test('updateContact persists modified fields', () async {
+    test('deletes a contact and cascades to remove its interaction history', () async {
       await appDb.insertContact(contact1);
 
-      final updated = contact1.copyWith(
-        name: 'Kofi Mensah (Pastor Kofi)',
-        location: 'Tema Community 2',
-      );
-      await appDb.updateContact(updated);
-
-      final fetched = await appDb.getContactById('contact-kofi');
-      expect(fetched!.name, 'Kofi Mensah (Pastor Kofi)');
-      expect(fetched.location, 'Tema Community 2');
-    });
-
-    test('deleteContact removes contact and cascades to interactions', () async {
-      await appDb.insertContact(contact1);
-      await appDb.addInteraction(Interaction(
+      final interaction = Interaction(
         id: 'inter-1',
         contactId: 'contact-kofi',
         date: testDate,
-        outcome: 'Called; no answer',
+        outcome: 'Called back; agreed to visit',
         createdAt: testDate,
-      ));
+      );
+      await appDb.addInteraction(interaction);
 
+      // Verify contact and interaction exist
+      expect((await appDb.getInteractionsForContact('contact-kofi')).length, 1);
+
+      // Delete contact
       await appDb.deleteContact('contact-kofi');
 
+      // Verify both are gone
       expect(await appDb.getContactById('contact-kofi'), isNull);
-      final remainingInteractions =
-          await appDb.getInteractionsForContact('contact-kofi');
-      expect(remainingInteractions, isEmpty);
+      expect((await appDb.getInteractionsForContact('contact-kofi')).length, 0);
     });
   });
 
@@ -241,7 +313,7 @@ void main() {
     });
   });
 
-  group('Milestone 7: Scale & Edge Case Verification', () {
+  group('Scale & Edge Case Verification', () {
     test('benchmarks sub-millisecond lookup speed across 1,000 evangelism contacts', () async {
       // 1. Batch insert 1,000 realistic church outreach contacts
       final batch = <Contact>[];

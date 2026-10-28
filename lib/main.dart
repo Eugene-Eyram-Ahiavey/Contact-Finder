@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qara/database/app_database.dart';
-import 'package:qara/screens/home_screen.dart';
+import 'package:qara/screens/call_centers_screen.dart';
 
 void main() async {
   // Ensure Flutter engine bindings are initialized before accessing native channels or databases
@@ -19,7 +19,7 @@ class EvangelismCallerIdApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Evangelism Caller ID',
+      title: 'Qara Call Centers',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -35,7 +35,7 @@ class EvangelismCallerIdApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: HomeScreen(database: database),
+      home: CallCentersScreen(database: database),
     );
   }
 }

@@ -82,6 +82,7 @@ class CallerIdService {
                 'normalizedPhone': c.normalizedPhoneNumber,
                 'location': c.location,
                 'notes': c.notes,
+                'callCenterName': c.callCenterName,
               })
           .toList();
       final bool? success = await _channel.invokeMethod<bool>(

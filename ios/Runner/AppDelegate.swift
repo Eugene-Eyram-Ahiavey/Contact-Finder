@@ -84,10 +84,14 @@ import CallKit
 
       let name = (contact["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
       let location = (contact["location"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let center = (contact["callCenterName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
       var label = name.isEmpty ? "Outreach Contact" : name
       if !location.isEmpty {
         label += " • \(location)"
+      }
+      if !center.isEmpty {
+        label += " (\(center))"
       }
 
       entries.append(QaraDirectoryEntry(phoneNumber: phoneInt, label: label))

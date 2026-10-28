@@ -33,6 +33,7 @@ The core capability of Qara is **instant caller identification for evangelism co
 | 5 | Import existing lists (CSV, Excel, Notes) | **Complete** |
 | 6 | Polished mobile UX & Status Banners | **Complete** |
 | 7 | Release readiness & iOS CallKit Extension | **Complete** |
+| 8 | Call Centers (Projects & Gems campaign workspaces) | **Complete** |
 
 ## Development Setup
 
@@ -101,16 +102,18 @@ Caller identification requires native platform code on both Android and iOS:
 ```
 qara/
 ├── lib/                      # Flutter/Dart cross-platform code
-│   ├── main.dart             # App entry point
+│   ├── main.dart             # App entry point (loads Call Centers Hub)
 │   ├── database/
-│   │   └── app_database.dart # Local SQLite database (qara.db)
+│   │   └── app_database.dart # Local SQLite database (qara.db v2 with Call Centers)
 │   ├── models/
-│   │   ├── contact.dart      # Contact data model
+│   │   ├── call_center.dart  # Call Center campaign workspace model
+│   │   ├── contact.dart      # Contact data model (with callCenterId)
 │   │   └── interaction.dart  # Follow-up interaction model
 │   ├── screens/
-│   │   ├── home_screen.dart  # Search, filter chips, platform status banners
-│   │   ├── import_modal.dart # CSV, Excel, Notes importer with preview table
-│   │   └── contact_detail_modal.dart # Profile and follow-up interaction logger
+│   │   ├── call_centers_screen.dart        # Projects/Gems Hub & onboarding welcome state
+│   │   ├── call_center_detail_screen.dart # Inside a Call Center (newest-on-top ordering)
+│   │   ├── import_modal.dart              # CSV, Excel, Notes importer scoped to center
+│   │   └── contact_detail_modal.dart      # Profile and follow-up interaction logger
 │   ├── services/
 │   │   ├── caller_id_service.dart    # Platform channel bridge
 │   │   ├── contact_importer.dart     # CSV, Excel, plain text parser

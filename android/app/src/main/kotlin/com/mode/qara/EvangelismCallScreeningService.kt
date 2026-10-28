@@ -63,7 +63,8 @@ class EvangelismCallScreeningService : CallScreeningService() {
         val location: String?,
         val notes: String?,
         val lastOutcome: String?,
-        val lastDate: String?
+        val lastDate: String?,
+        val callCenterName: String? = null
     )
 
     override fun onScreenCall(callDetails: Call.Details) {
@@ -272,6 +273,18 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     cardLayout.addView(locationView)
                 }
 
+                // Call Center / Project (if present)
+                if (!match.callCenterName.isNullOrBlank()) {
+                    val centerView = TextView(applicationContext).apply {
+                        text = "📁 Center: ${match.callCenterName}"
+                        textSize = 13f
+                        setTextColor(Color.parseColor("#80CBC4"))
+                        typeface = Typeface.DEFAULT_BOLD
+                        setPadding(0, 0, 0, dp(2))
+                    }
+                    cardLayout.addView(centerView)
+                }
+
                 // Outreach Notes (if present)
                 if (!match.notes.isNullOrBlank()) {
                     val notesView = TextView(applicationContext).apply {
@@ -358,15 +371,35 @@ class EvangelismCallScreeningService : CallScreeningService() {
         return try {
             db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
 
-            val query = """
+            val hasCallCenters = try {
+                val checkCursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='call_centers'", null)
+                val exists = checkCursor.count > 0
+                checkCursor.close()
+                exists
+            } catch (_: Exception) { false }
+
+            val query = if (hasCallCenters) {
+                """
                 SELECT c.id, c.name, c.phone_number, c.location, c.notes,
-                       i.outcome, i.date
+                       i.outcome, i.date, cc.name
+                FROM contacts c
+                LEFT JOIN interactions i ON i.contact_id = c.id
+                LEFT JOIN call_centers cc ON cc.id = c.call_center_id
+                WHERE c.normalized_phone_number = ? OR c.phone_number = ? OR c.phone_number = ?
+                ORDER BY i.date DESC
+                LIMIT 1
+                """.trimIndent()
+            } else {
+                """
+                SELECT c.id, c.name, c.phone_number, c.location, c.notes,
+                       i.outcome, i.date, NULL
                 FROM contacts c
                 LEFT JOIN interactions i ON i.contact_id = c.id
                 WHERE c.normalized_phone_number = ? OR c.phone_number = ? OR c.phone_number = ?
                 ORDER BY i.date DESC
                 LIMIT 1
-            """.trimIndent()
+                """.trimIndent()
+            }
 
             val searchArgs = arrayOf(normalized ?: "", raw, normalized ?: "")
             val cursor = db.rawQuery(query, searchArgs)
@@ -380,7 +413,8 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     location = if (!cursor.isNull(3)) cursor.getString(3) else null,
                     notes = if (!cursor.isNull(4)) cursor.getString(4) else null,
                     lastOutcome = if (!cursor.isNull(5)) cursor.getString(5) else null,
-                    lastDate = if (!cursor.isNull(6)) cursor.getString(6) else null
+                    lastDate = if (!cursor.isNull(6)) cursor.getString(6) else null,
+                    callCenterName = if (!cursor.isNull(7)) cursor.getString(7) else null
                 )
             }
             cursor.close()
@@ -427,6 +461,11 @@ class EvangelismCallScreeningService : CallScreeningService() {
         )
 
         val subtitle = buildString {
+            if (!match.callCenterName.isNullOrBlank()) {
+                append("[")
+                append(match.callCenterName)
+                append("] ")
+            }
             if (!match.location.isNullOrBlank()) {
                 append("📍 ")
                 append(match.location)
@@ -440,6 +479,9 @@ class EvangelismCallScreeningService : CallScreeningService() {
 
         val bigText = buildString {
             append("Phone: ").append(match.rawPhone)
+            if (!match.callCenterName.isNullOrBlank()) {
+                append("\nCenter: ").append(match.callCenterName)
+            }
             if (!match.location.isNullOrBlank()) {
                 append("\nLocation: ").append(match.location)
             }

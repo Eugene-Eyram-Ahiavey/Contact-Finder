@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:qara/database/app_database.dart';
 import 'package:qara/main.dart';
+import 'package:qara/models/call_center.dart';
 
 void main() {
   setUpAll(() {
@@ -25,28 +26,7 @@ void main() {
       options: OpenDatabaseOptions(
         version: AppDatabase.databaseVersion,
         onCreate: (db, version) async {
-          await db.execute('''
-            CREATE TABLE ${AppDatabase.tableContacts} (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              phone_number TEXT NOT NULL,
-              normalized_phone_number TEXT NOT NULL UNIQUE,
-              location TEXT,
-              notes TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            )
-          ''');
-          await db.execute('''
-            CREATE TABLE ${AppDatabase.tableInteractions} (
-              id TEXT PRIMARY KEY,
-              contact_id TEXT NOT NULL,
-              date TEXT NOT NULL,
-              outcome TEXT NOT NULL,
-              notes TEXT,
-              created_at TEXT NOT NULL
-            )
-          ''');
+          await AppDatabase.createTables(db, version);
         },
       ),
     );
@@ -59,7 +39,7 @@ void main() {
     await rawDb.close();
   });
 
-  testWidgets('App renders Evangelism Contacts home screen with empty state',
+  testWidgets('App renders Call Centers hub screen with onboarding welcome state on first launch',
       (WidgetTester tester) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(EvangelismCallerIdApp(database: appDb));
@@ -69,9 +49,34 @@ void main() {
     // Re-render UI after state update
     await tester.pump();
 
-    // Verify title and empty state are present
-    expect(find.text('Evangelism Contacts'), findsOneWidget);
-    expect(find.text('No Evangelism Contacts Yet'), findsOneWidget);
-    expect(find.text('Paste Notes'), findsOneWidget);
+    // Verify title and welcome onboarding elements are present
+    expect(find.text('Qara Call Centers'), findsOneWidget);
+    expect(find.text('Welcome to Qara'), findsOneWidget);
+    expect(find.text('Create Your First Call Center'), findsOneWidget);
+  });
+
+  testWidgets('App displays created Call Center card in the hub list',
+      (WidgetTester tester) async {
+    final now = DateTime.now();
+    await appDb.insertCallCenter(CallCenter(
+      id: 'center-spintex',
+      name: 'Spintex Saturday Outreach',
+      location: 'Spintex Road',
+      description: 'Youth evangelism drive',
+      colorHex: '#3F51B5',
+      createdAt: now,
+      updatedAt: now,
+    ));
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(EvangelismCallerIdApp(database: appDb));
+      await Future.delayed(const Duration(milliseconds: 150));
+    });
+    await tester.pump();
+
+    // Verify Call Center card is rendered
+    expect(find.text('Spintex Saturday Outreach'), findsOneWidget);
+    expect(find.text('Spintex Road'), findsOneWidget);
+    expect(find.text('0 contacts'), findsOneWidget);
   });
 }

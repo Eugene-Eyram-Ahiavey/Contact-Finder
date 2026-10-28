@@ -52,7 +52,7 @@ class ContactImporter {
   );
 
   /// Parses raw pasted text or CSV into validated [Contact] instances and flags any issues.
-  static ImportBatchResult parseText(String rawText) {
+  static ImportBatchResult parseText(String rawText, {String? callCenterId}) {
     final lines = rawText.split(RegExp(r'\r?\n'));
     final List<Contact> valid = [];
     final List<SkippedImportLine> skipped = [];
@@ -100,6 +100,7 @@ class ContactImporter {
       if (seenNormalizedNumbers.contains(normalized)) {
         duplicates.add(Contact(
           id: _uuid.v4(),
+          callCenterId: callCenterId,
           name: 'Duplicate ($rawPhone)',
           phoneNumber: rawPhone,
           normalizedPhoneNumber: normalized,
@@ -140,6 +141,7 @@ class ContactImporter {
 
       valid.add(Contact(
         id: _uuid.v4(),
+        callCenterId: callCenterId,
         name: name,
         phoneNumber: rawPhone,
         normalizedPhoneNumber: normalized,
@@ -158,7 +160,7 @@ class ContactImporter {
   }
 
   /// Parses an Excel spreadsheet (.xlsx) binary data into [ImportBatchResult].
-  static ImportBatchResult parseExcelBytes(List<int> bytes) {
+  static ImportBatchResult parseExcelBytes(List<int> bytes, {String? callCenterId}) {
     final excel = Excel.decodeBytes(bytes);
     final List<Contact> valid = [];
     final List<SkippedImportLine> skipped = [];
@@ -266,6 +268,7 @@ class ContactImporter {
         if (seenNormalizedNumbers.contains(normalized)) {
           duplicates.add(Contact(
             id: _uuid.v4(),
+            callCenterId: callCenterId,
             name: name,
             phoneNumber: rawPhone,
             normalizedPhoneNumber: normalized,
@@ -278,6 +281,7 @@ class ContactImporter {
         seenNormalizedNumbers.add(normalized);
         valid.add(Contact(
           id: _uuid.v4(),
+          callCenterId: callCenterId,
           name: name.isNotEmpty ? name : 'Unknown Contact',
           phoneNumber: rawPhone,
           normalizedPhoneNumber: normalized,
