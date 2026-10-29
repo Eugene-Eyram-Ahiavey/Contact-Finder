@@ -77,6 +77,17 @@ class MainActivity : FlutterActivity() {
                     // so no pre-indexing export is required.
                     result.success(true)
                 }
+                "shareText" -> {
+                    val text = call.arguments as? String ?: ""
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, text)
+                        type = "text/plain"
+                    }
+                    val shareIntent = Intent.createChooser(sendIntent, null)
+                    startActivity(shareIntent)
+                    result.success(true)
+                }
                 else -> {
                     result.notImplemented()
                 }

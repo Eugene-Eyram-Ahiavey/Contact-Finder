@@ -53,6 +53,7 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
     final nameController = TextEditingController(text: _contact.name);
     final phoneController = TextEditingController(text: _contact.phoneNumber);
     final locationController = TextEditingController(text: _contact.location ?? '');
+    final statusController = TextEditingController(text: _contact.callStatus ?? '');
     final notesController = TextEditingController(text: _contact.notes ?? '');
 
     String? validationError;
@@ -85,6 +86,11 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                     TextField(
                       controller: locationController,
                       decoration: const InputDecoration(labelText: 'Location / Area'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: statusController,
+                      decoration: const InputDecoration(labelText: 'Call Outcome / Status (e.g. Coming)'),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -129,6 +135,9 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                       normalizedPhoneNumber: normalized,
                       location: locationController.text.trim().isNotEmpty
                           ? locationController.text.trim()
+                          : null,
+                      callStatus: statusController.text.trim().isNotEmpty
+                          ? statusController.text.trim()
                           : null,
                       notes: notesController.text.trim().isNotEmpty
                           ? notesController.text.trim()
@@ -338,6 +347,26 @@ class _ContactDetailModalState extends State<ContactDetailModal> {
                         child: Text(
                           _contact.location!,
                           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                      ),
+                    if (_contact.callStatus != null && _contact.callStatus!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Text(
+                            'Status: ${_contact.callStatus!}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo.shade800,
+                            ),
+                          ),
                         ),
                       ),
                   ],

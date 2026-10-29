@@ -95,6 +95,7 @@ void main() {
         'normalized_phone_number': '+233551122334',
         'location': null,
         'notes': null,
+        'call_status': null,
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
       };
@@ -104,7 +105,19 @@ void main() {
       expect(contact.callCenterId, isNull);
       expect(contact.location, isNull);
       expect(contact.notes, isNull);
+      expect(contact.callStatus, isNull);
       expect(contact.phoneNumber, '0551122334');
+    });
+
+    test('serializes and deserializes callStatus accurately', () {
+      final contactWithStatus = testContact.copyWith(callStatus: 'Coming');
+      expect(contactWithStatus.callStatus, 'Coming');
+
+      final map = contactWithStatus.toMap();
+      expect(map['call_status'], 'Coming');
+
+      final reconstructed = Contact.fromMap(map);
+      expect(reconstructed.callStatus, 'Coming');
     });
   });
 

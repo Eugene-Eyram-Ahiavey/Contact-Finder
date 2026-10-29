@@ -5,6 +5,7 @@ import 'package:qara/models/call_center.dart';
 import 'package:qara/models/contact.dart';
 import 'package:qara/screens/contact_detail_modal.dart';
 import 'package:qara/screens/import_modal.dart';
+import 'package:qara/screens/report_preview_screen.dart';
 import 'package:qara/services/caller_id_service.dart';
 import 'package:qara/services/phone_dialer_service.dart';
 import 'package:qara/utils/phone_number_normalizer.dart';
@@ -87,6 +88,13 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
       _contacts = _allContacts
           .where((c) => c.notes != null && c.notes!.trim().isNotEmpty)
           .toList();
+    } else if (_selectedFilter.startsWith('status:')) {
+      final statusName = _selectedFilter.substring(7);
+      _contacts = _allContacts
+          .where((c) =>
+              c.callStatus != null &&
+              c.callStatus!.trim().toLowerCase() == statusName.toLowerCase())
+          .toList();
     } else {
       _contacts = _allContacts
           .where((c) =>
@@ -112,6 +120,307 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
         .toList();
     locs.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return locs;
+  }
+
+  List<String> get _availableStatuses {
+    final statuses = _allContacts
+        .map((c) => c.callStatus?.trim())
+        .where((st) => st != null && st.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+    statuses.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return statuses;
+  }
+
+  void _openReportPreview() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportPreviewScreen(
+          callCenterName: _currentCenter.name,
+          contacts: _allContacts,
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    final lower = status.toLowerCase();
+    if (lower.contains('coming') ||
+        lower.contains('confirm') ||
+        lower.contains('yes')) {
+      return Colors.green.shade700;
+    }
+    if (lower.contains('not coming') ||
+        lower.contains('busy') ||
+        lower.contains('sick') ||
+        lower.contains('can\'t') ||
+        lower.contains('cannot')) {
+      return Colors.red.shade700;
+    }
+    if (lower.contains('no answer') ||
+        lower.contains('unreachable') ||
+        lower.contains('not reachable') ||
+        lower.contains('didn\'t answer') ||
+        lower.contains('not answering')) {
+      return Colors.orange.shade800;
+    }
+    if (lower.contains('wrong') ||
+        lower.contains('invalid') ||
+        lower.contains('incorrect')) {
+      return Colors.deepPurple.shade700;
+    }
+    if (lower.contains('call back') ||
+        lower.contains('call again') ||
+        lower.contains('later')) {
+      return Colors.blue.shade700;
+    }
+    if (lower.contains('not sure') || lower.contains('maybe')) {
+      return Colors.amber.shade900;
+    }
+    return Colors.blueGrey.shade700;
+  }
+
+  Future<void> _showStatusPicker(Contact contact) async {
+    final existingStatuses =
+        await widget.database.getUniqueStatusesInCallCenter(_currentCenter.id);
+
+    const defaultSuggestions = [
+      'Coming',
+      'Not Sure',
+      'No Answer',
+      'Wrong Number',
+      'Call Back',
+      'Busy',
+      'Not Coming',
+    ];
+
+    final suggestions = <String>[...existingStatuses];
+    for (final def in defaultSuggestions) {
+      if (!suggestions.any((s) => s.toLowerCase() == def.toLowerCase())) {
+        suggestions.add(def);
+      }
+    }
+
+    final controller = TextEditingController(text: contact.callStatus ?? '');
+
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final currentText = controller.text.trim();
+            final bottomInset = MediaQuery.of(modalCtx).viewInsets.bottom;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.indigo.shade50,
+                          child: Text(
+                            contact.name.isNotEmpty
+                                ? contact.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                contact.name,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                PhoneNumberNormalizer.formatForDisplay(
+                                    contact.phoneNumber),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Call Outcome / Status',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: controller,
+                      autofocus: contact.callStatus == null,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Coming, Invalid Number, Call Back...',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        suffixIcon: currentText.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  controller.clear();
+                                  setModalState(() {});
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (_) => setModalState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Suggestions',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: suggestions.map((status) {
+                        final isSelected =
+                            currentText.toLowerCase() == status.toLowerCase();
+                        return FilterChip(
+                          label: Text(status),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setModalState(() {
+                              controller.text = selected ? status : '';
+                            });
+                          },
+                          selectedColor: Colors.indigo.shade100,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.indigo.shade900
+                                : Colors.grey.shade800,
+                          ),
+                          backgroundColor: Colors.grey.shade100,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? Colors.indigo.shade400
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        if (contact.callStatus != null &&
+                            contact.callStatus!.trim().isNotEmpty) ...[
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              await widget.database
+                                  .updateContactStatus(contact.id, null);
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                              _loadContacts();
+                              widget.onCenterUpdated();
+                            },
+                            icon: const Icon(Icons.delete_outline, size: 16),
+                            label: const Text('Clear'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade600,
+                              side: BorderSide(color: Colors.red.shade200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final newStatus = controller.text.trim();
+                              await widget.database.updateContactStatus(
+                                contact.id,
+                                newStatus.isEmpty ? null : newStatus,
+                              );
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                              _loadContacts();
+                              widget.onCenterUpdated();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              'Save Status',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _onSearchChanged(String query) {
@@ -359,6 +668,11 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.assessment_outlined),
+            tooltip: 'Call Report',
+            onPressed: _openReportPreview,
+          ),
+          IconButton(
             icon: const Icon(Icons.paste),
             tooltip: 'Paste / Import Contacts',
             onPressed: _openImportModal,
@@ -371,11 +685,35 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (val) {
-              if (val == 'edit') {
+              if (val == 'report') {
+                _openReportPreview();
+              } else if (val == 'edit') {
                 _showEditCenterDialog();
+              } else if (val == 'import') {
+                _openImportModal();
               }
             },
             itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    Icon(Icons.assessment_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Generate Call Report'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.paste_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Import / Paste Contacts'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'edit',
                 child: Row(
@@ -495,7 +833,7 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
                               ),
                               title: Row(
                                 children: [
-                                  Expanded(
+                                  Flexible(
                                     child: Text(
                                       contact.name,
                                       style: const TextStyle(
@@ -510,7 +848,7 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
                                         horizontal: 6,
                                         vertical: 2,
                                       ),
-                                      margin: const EdgeInsets.only(left: 4),
+                                      margin: const EdgeInsets.only(left: 6),
                                       decoration: BoxDecoration(
                                         color: Colors.green.shade50,
                                         borderRadius: BorderRadius.circular(4),
@@ -529,35 +867,165 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
                                     ),
                                 ],
                               ),
-                              subtitle: Text(
-                                displayPhone,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    displayPhone,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      // Call Status Badge (Tappable to set / update status)
+                                      InkWell(
+                                        onTap: () => _showStatusPicker(contact),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: contact.callStatus != null &&
+                                                contact.callStatus!.trim().isNotEmpty
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _getStatusColor(contact.callStatus!)
+                                                      .withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: _getStatusColor(contact.callStatus!)
+                                                        .withOpacity(0.35),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.bookmark,
+                                                      size: 11,
+                                                      color: _getStatusColor(contact.callStatus!),
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Text(
+                                                      contact.callStatus!,
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: _getStatusColor(contact.callStatus!),
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.add_task,
+                                                      size: 11,
+                                                      color: Colors.grey.shade600,
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Text(
+                                                      'Add Status',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade600,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                      ),
+                                      if (contact.location != null && contact.location!.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueGrey.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.location_on_outlined,
+                                                size: 11,
+                                                color: Colors.blueGrey.shade700,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                contact.location!,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.blueGrey.shade800,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (contact.notes != null && contact.notes!.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.notes_outlined,
+                                                size: 11,
+                                                color: Colors.amber.shade900,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                contact.notes!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.amber.shade900,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (contact.location != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueGrey.shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        contact.location!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.blueGrey.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                  const SizedBox(width: 4),
                                   IconButton(
                                     icon: const Icon(
                                       Icons.phone_outlined,
@@ -667,6 +1135,37 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
                 label: Text('📍 $loc ($count)'),
                 selected: isSelected,
                 onSelected: (_) => _onFilterSelected(loc),
+                selectedColor: Colors.indigo.shade100,
+                backgroundColor: Colors.white,
+                visualDensity: VisualDensity.compact,
+                side: BorderSide(
+                  color: isSelected ? Colors.indigo : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? Colors.indigo.shade900
+                      : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
+            );
+          }),
+          ..._availableStatuses.map((status) {
+            final count = _allContacts
+                .where((c) =>
+                    c.callStatus != null &&
+                    c.callStatus!.trim().toLowerCase() == status.toLowerCase())
+                .length;
+            final filterKey = 'status:$status';
+            final isSelected = _selectedFilter == filterKey;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text('🏷️ $status ($count)'),
+                selected: isSelected,
+                onSelected: (_) =>
+                    _onFilterSelected(isSelected ? 'All' : filterKey),
                 selectedColor: Colors.indigo.shade100,
                 backgroundColor: Colors.white,
                 visualDensity: VisualDensity.compact,

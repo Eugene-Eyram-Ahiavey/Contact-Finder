@@ -19,6 +19,7 @@ class Contact {
   final String normalizedPhoneNumber;
   final String? location;
   final String? notes;
+  final String? callStatus;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -31,6 +32,7 @@ class Contact {
     required this.normalizedPhoneNumber,
     this.location,
     this.notes,
+    this.callStatus,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -48,6 +50,7 @@ class Contact {
     String? normalizedPhoneNumber,
     String? location,
     String? notes,
+    String? callStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -61,6 +64,7 @@ class Contact {
           normalizedPhoneNumber ?? this.normalizedPhoneNumber,
       location: location ?? this.location,
       notes: notes ?? this.notes,
+      callStatus: callStatus ?? this.callStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -76,6 +80,7 @@ class Contact {
       'normalized_phone_number': normalizedPhoneNumber,
       'location': location,
       'notes': notes,
+      'call_status': callStatus,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -92,6 +97,7 @@ class Contact {
       normalizedPhoneNumber: map['normalized_phone_number'] as String,
       location: map['location'] as String?,
       notes: map['notes'] as String?,
+      callStatus: map['call_status'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

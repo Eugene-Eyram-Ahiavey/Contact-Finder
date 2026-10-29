@@ -21,7 +21,7 @@ import 'package:qara/utils/phone_number_normalizer.dart';
 class AppDatabase {
   static const String databaseName = 'qara.db';
   static const String legacyDatabaseName = 'evangelism_caller_id.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   static const String tableCallCenters = 'call_centers';
   static const String tableContacts = 'contacts';
@@ -101,6 +101,7 @@ class AppDatabase {
         normalized_phone_number TEXT NOT NULL UNIQUE,
         location TEXT,
         notes TEXT,
+        call_status TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (call_center_id) REFERENCES $tableCallCenters (id) ON DELETE CASCADE
@@ -221,6 +222,12 @@ class AppDatabase {
           WHERE call_center_id IS NULL
         ''', [defaultCenterId]);
       }
+    }
+
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE $tableContacts ADD COLUMN call_status TEXT',
+      );
     }
   }
 
@@ -453,6 +460,31 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [contact.id],
     );
+  }
+
+  /// Updates only the call status of a contact (e.g., 'called', 'not_answered', etc.).
+  Future<void> updateContactStatus(String contactId, String? status) async {
+    final db = await database;
+    await db.update(
+      tableContacts,
+      {
+        'call_status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [contactId],
+    );
+  }
+
+  /// Returns a list of unique, non-empty call statuses used across contacts in a Call Center.
+  Future<List<String>> getUniqueStatusesInCallCenter(String callCenterId) async {
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT DISTINCT call_status FROM $tableContacts
+      WHERE call_center_id = ? AND call_status IS NOT NULL AND call_status != ''
+      ORDER BY call_status
+    ''', [callCenterId]);
+    return results.map((r) => r['call_status'] as String).toList();
   }
 
   /// Deletes a contact and automatically cascades to delete their interactions.

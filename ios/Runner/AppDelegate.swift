@@ -50,6 +50,21 @@ import CallKit
           }
           self.syncContacts(contacts: contacts, result: result)
 
+        case "shareText":
+          guard let text = call.arguments as? String else {
+            result(false)
+            return
+          }
+          let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+          if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = controller.view
+            popover.sourceRect = CGRect(x: controller.view.bounds.midX, y: controller.view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+          }
+          controller.present(activityVC, animated: true) {
+            result(true)
+          }
+
         default:
           result(FlutterMethodNotImplemented)
         }

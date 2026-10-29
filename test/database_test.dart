@@ -368,5 +368,55 @@ void main() {
       expect(found!.location, isNull);
       expect(found.notes, isNull);
     });
+
+    test('can update call status and retrieve unique statuses in Call Center', () async {
+      final contact1 = Contact(
+        id: 'c-status-1',
+        callCenterId: 'center-status',
+        name: 'Contact One',
+        phoneNumber: '0244001122',
+        normalizedPhoneNumber: '+233244001122',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      final contact2 = Contact(
+        id: 'c-status-2',
+        callCenterId: 'center-status',
+        name: 'Contact Two',
+        phoneNumber: '0244001133',
+        normalizedPhoneNumber: '+233244001133',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await appDb.insertContact(contact1);
+      await appDb.insertContact(contact2);
+
+      // Initially no statuses
+      var uniqueStatuses = await appDb.getUniqueStatusesInCallCenter('center-status');
+      expect(uniqueStatuses.isEmpty, isTrue);
+
+      // Update status for contact1
+      await appDb.updateContactStatus('c-status-1', 'Coming');
+      var updated1 = await appDb.findContactByPhoneNumber('0244001122');
+      expect(updated1?.callStatus, 'Coming');
+
+      // Update status for contact2 with a custom status
+      await appDb.updateContactStatus('c-status-2', 'Invalid Number');
+
+      uniqueStatuses = await appDb.getUniqueStatusesInCallCenter('center-status');
+      expect(uniqueStatuses.length, 2);
+      expect(uniqueStatuses.contains('Coming'), isTrue);
+      expect(uniqueStatuses.contains('Invalid Number'), isTrue);
+
+      // Can clear status (e.g. back to null)
+      await appDb.updateContactStatus('c-status-1', null);
+      updated1 = await appDb.findContactByPhoneNumber('0244001122');
+      expect(updated1?.callStatus, isNull);
+
+      uniqueStatuses = await appDb.getUniqueStatusesInCallCenter('center-status');
+      expect(uniqueStatuses.length, 1);
+      expect(uniqueStatuses.first, 'Invalid Number');
+    });
   });
 }

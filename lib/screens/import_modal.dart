@@ -600,7 +600,8 @@ class _ImportNotesModalState extends State<ImportNotesModal> {
           ],
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildStatItem({
