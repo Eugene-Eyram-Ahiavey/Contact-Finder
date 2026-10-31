@@ -167,11 +167,6 @@ class _ImportNotesModalState extends State<ImportNotesModal> {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
-      onVerticalDragUpdate: (details) {
-        if (details.primaryDelta != null && details.primaryDelta! > 5) {
-          FocusScope.of(context).unfocus();
-        }
-      },
       child: Container(
         height: totalHeight * 0.88,
         padding: EdgeInsets.only(
@@ -343,39 +338,29 @@ class _ImportNotesModalState extends State<ImportNotesModal> {
               ),
               const SizedBox(height: 8),
 
-              // Text Input Field with downward swipe detection
+              // Text Input Field
               Expanded(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollUpdateNotification) {
-                      if (notification.scrollDelta != null && notification.scrollDelta! < -6) {
-                        FocusScope.of(context).unfocus();
-                      }
-                    }
-                    return false;
-                  },
-                  child: TextField(
-                    controller: _textController,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: InputDecoration(
-                      hintText: 'Paste notes or WhatsApp lines here...\n\nExamples:\n'
-                          '• Kofi Mensah - 0244123456 - Tema - Prayed for healing\n'
-                          '• Ama Serwaa, 0551122334, Spintex\n'
-                          '• 0277889900 - Kwabena (Madina)\n'
-                          '• Pastor John: 0201234567',
-                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
+                child: TextField(
+                  controller: _textController,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: InputDecoration(
+                    hintText: 'Paste notes or WhatsApp lines here...\n\nExamples:\n'
+                        '• Kofi Mensah - 0244123456 - Tema - Prayed for healing\n'
+                        '• Ama Serwaa, 0551122334, Spintex\n'
+                        '• 0277889900 - Kwabena (Madina)\n'
+                        '• Pastor John: 0201234567',
+                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
                 ),

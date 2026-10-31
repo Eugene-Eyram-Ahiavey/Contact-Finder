@@ -9,10 +9,8 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
     override func beginRequest(with context: CXCallDirectoryExtensionContext) {
         context.delegate = self
 
-        if context.isIncremental {
-            // Remove previous entries if doing full sync
-            context.removeAllIdentificationEntries()
-        }
+        // Reset previous entries to ensure fresh compilation
+        context.removeAllIdentificationEntries()
 
         addAllIdentificationEntries(to: context)
 

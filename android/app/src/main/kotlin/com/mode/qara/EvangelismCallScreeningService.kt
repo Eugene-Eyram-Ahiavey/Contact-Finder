@@ -62,6 +62,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
         val rawPhone: String,
         val location: String?,
         val notes: String?,
+        val callStatus: String?,
         val lastOutcome: String?,
         val lastDate: String?,
         val callCenterName: String? = null
@@ -285,6 +286,18 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     cardLayout.addView(centerView)
                 }
 
+                // Call Status (if present, e.g. Coming, Invalid Number)
+                if (!match.callStatus.isNullOrBlank()) {
+                    val statusView = TextView(applicationContext).apply {
+                        text = "🏷️ Status: ${match.callStatus}"
+                        textSize = 13f
+                        setTextColor(Color.parseColor("#FFD54F"))
+                        typeface = Typeface.DEFAULT_BOLD
+                        setPadding(0, 0, 0, dp(2))
+                    }
+                    cardLayout.addView(statusView)
+                }
+
                 // Outreach Notes (if present)
                 if (!match.notes.isNullOrBlank()) {
                     val notesView = TextView(applicationContext).apply {
@@ -378,28 +391,34 @@ class EvangelismCallScreeningService : CallScreeningService() {
                 exists
             } catch (_: Exception) { false }
 
-            val query = if (hasCallCenters) {
-                """
+            val hasCallStatus = try {
+                val pragma = db.rawQuery("PRAGMA table_info(contacts)", null)
+                var found = false
+                while (pragma.moveToNext()) {
+                    val colName = pragma.getString(1)
+                    if (colName == "call_status") {
+                        found = true
+                        break
+                    }
+                }
+                pragma.close()
+                found
+            } catch (_: Exception) { false }
+
+            val statusCol = if (hasCallStatus) "c.call_status" else "NULL"
+            val centerCol = if (hasCallCenters) "cc.name" else "NULL"
+            val centerJoin = if (hasCallCenters) "LEFT JOIN call_centers cc ON cc.id = c.call_center_id" else ""
+
+            val query = """
                 SELECT c.id, c.name, c.phone_number, c.location, c.notes,
-                       i.outcome, i.date, cc.name
+                       i.outcome, i.date, $centerCol, $statusCol
                 FROM contacts c
                 LEFT JOIN interactions i ON i.contact_id = c.id
-                LEFT JOIN call_centers cc ON cc.id = c.call_center_id
+                $centerJoin
                 WHERE c.normalized_phone_number = ? OR c.phone_number = ? OR c.phone_number = ?
                 ORDER BY i.date DESC
                 LIMIT 1
-                """.trimIndent()
-            } else {
-                """
-                SELECT c.id, c.name, c.phone_number, c.location, c.notes,
-                       i.outcome, i.date, NULL
-                FROM contacts c
-                LEFT JOIN interactions i ON i.contact_id = c.id
-                WHERE c.normalized_phone_number = ? OR c.phone_number = ? OR c.phone_number = ?
-                ORDER BY i.date DESC
-                LIMIT 1
-                """.trimIndent()
-            }
+            """.trimIndent()
 
             val searchArgs = arrayOf(normalized ?: "", raw, normalized ?: "")
             val cursor = db.rawQuery(query, searchArgs)
@@ -412,6 +431,7 @@ class EvangelismCallScreeningService : CallScreeningService() {
                     rawPhone = cursor.getString(2),
                     location = if (!cursor.isNull(3)) cursor.getString(3) else null,
                     notes = if (!cursor.isNull(4)) cursor.getString(4) else null,
+                    callStatus = if (!cursor.isNull(8)) cursor.getString(8) else null,
                     lastOutcome = if (!cursor.isNull(5)) cursor.getString(5) else null,
                     lastDate = if (!cursor.isNull(6)) cursor.getString(6) else null,
                     callCenterName = if (!cursor.isNull(7)) cursor.getString(7) else null
@@ -470,7 +490,11 @@ class EvangelismCallScreeningService : CallScreeningService() {
                 append("📍 ")
                 append(match.location)
             }
-            if (!match.lastOutcome.isNullOrBlank()) {
+            if (!match.callStatus.isNullOrBlank()) {
+                if (isNotEmpty()) append(" • ")
+                append("Status: ")
+                append(match.callStatus)
+            } else if (!match.lastOutcome.isNullOrBlank()) {
                 if (isNotEmpty()) append(" • ")
                 append("Last: ")
                 append(match.lastOutcome)
@@ -487,6 +511,9 @@ class EvangelismCallScreeningService : CallScreeningService() {
             }
             if (!match.notes.isNullOrBlank()) {
                 append("\nNotes: ").append(match.notes)
+            }
+            if (!match.callStatus.isNullOrBlank()) {
+                append("\nStatus: ").append(match.callStatus)
             }
             if (!match.lastOutcome.isNullOrBlank()) {
                 append("\nLast Interaction: ").append(match.lastOutcome)

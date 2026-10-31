@@ -54,11 +54,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   Map<String, int> get _statusSummary =>
       ReportGeneratorService.getStatusSummary(widget.contacts);
 
-  void _copyToClipboard() {
+  void _copyToClipboard({String message = 'Report copied to clipboard!'}) {
     Clipboard.setData(ClipboardData(text: _generatedReport));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Report copied to clipboard!'),
+        content: Text(message),
         backgroundColor: Colors.teal.shade700,
         behavior: SnackBarBehavior.floating,
       ),
@@ -73,11 +73,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       final success =
           await _platform.invokeMethod<bool>('shareText', _generatedReport);
       if (success != true) {
-        _copyToClipboard();
+        _copyToClipboard(
+            message: 'Share sheet dismissed or unavailable. Copied to clipboard.');
       }
-    } catch (_) {
-      // Fallback to clipboard if native share sheet is unavailable
-      _copyToClipboard();
+    } catch (e) {
+      debugPrint('[Qara] shareReport error: $e');
+      _copyToClipboard(
+          message: 'Share error: $e. Copied to clipboard.');
     }
   }
 

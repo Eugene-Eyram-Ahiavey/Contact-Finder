@@ -458,7 +458,10 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
           widget.onCenterUpdated();
         },
       ),
-    );
+    ).then((_) {
+      // Re-sync after closing contact detail in case status was updated
+      _syncCallDirectory();
+    });
   }
 
   Future<void> _showAddContactDialog() async {

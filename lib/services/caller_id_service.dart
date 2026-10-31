@@ -82,6 +82,7 @@ class CallerIdService {
                 'normalizedPhone': c.normalizedPhoneNumber,
                 'location': c.location,
                 'notes': c.notes,
+                'callStatus': c.callStatus,
                 'callCenterName': c.callCenterName,
               })
           .toList();
