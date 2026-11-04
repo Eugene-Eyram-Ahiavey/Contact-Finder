@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:qara/models/contact.dart';
 
@@ -47,7 +48,9 @@ class CallerIdService {
   }
 
   /// Checks whether the app has permission to draw floating overlays ("Display over other apps").
+  /// This is an Android-only system permission; returns true on iOS.
   static Future<bool> isOverlayPermissionGranted() async {
+    if (!Platform.isAndroid) return true;
     try {
       final bool? isGranted =
           await _channel.invokeMethod<bool>('isOverlayPermissionGranted');
@@ -58,7 +61,9 @@ class CallerIdService {
   }
 
   /// Opens the system settings screen for the user to grant "Display over other apps".
+  /// This is an Android-only system permission; returns true on iOS.
   static Future<bool> requestOverlayPermission() async {
+    if (!Platform.isAndroid) return true;
     try {
       final bool? success =
           await _channel.invokeMethod<bool>('requestOverlayPermission');

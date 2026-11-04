@@ -9,8 +9,13 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
     override func beginRequest(with context: CXCallDirectoryExtensionContext) {
         context.delegate = self
 
-        // Reset previous entries to ensure fresh compilation
-        context.removeAllIdentificationEntries()
+        // Apple CallKit API Rule:
+        // "Don't call removeAllIdentificationEntries() if isIncremental is false."
+        // Calling it during the initial toggle (isIncremental == false) causes iOS to throw
+        // "Error Enabling Extension: Failed to request data for Qara".
+        if context.isIncremental {
+            context.removeAllIdentificationEntries()
+        }
 
         addAllIdentificationEntries(to: context)
 
@@ -27,7 +32,7 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
 
         let fileURL = containerURL.appendingPathComponent(directoryFileName)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            NSLog("[Qara] Directory file does not exist at %@", fileURL.path)
+            NSLog("[Qara] Directory file does not exist yet at %@", fileURL.path)
             return
         }
 

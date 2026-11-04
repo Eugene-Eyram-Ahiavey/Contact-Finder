@@ -349,34 +349,6 @@ class _CallCentersScreenState extends State<CallCentersScreen>
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sync Caller ID',
-            onPressed: () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Syncing contacts with Apple CallKit...'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-              final all = await widget.database.getAllContacts();
-              final ok = await CallerIdService.syncContactsToCallDirectory(all);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      ok
-                          ? '✓ Synced ${all.length} contacts with Caller ID'
-                          : 'Caller ID sync completed',
-                    ),
-                    backgroundColor: Colors.teal.shade700,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'New Call Center',
             onPressed: _showCreateCenterDialog,
