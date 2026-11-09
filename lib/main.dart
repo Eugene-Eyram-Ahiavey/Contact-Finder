@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qara/database/app_database.dart';
-import 'package:qara/screens/call_centers_screen.dart';
+import 'package:qara/screens/landing_splash_screen.dart';
+import 'package:qara/theme/app_theme.dart';
 
 void main() async {
   // Ensure Flutter engine bindings are initialized before accessing native channels or databases
@@ -24,18 +25,18 @@ class EvangelismCallerIdApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          primary: Colors.indigo.shade700,
-          secondary: Colors.teal.shade700,
+          seedColor: AppColors.brandDarkTeal,
+          primary: AppColors.brandDarkTeal,
+          secondary: AppColors.brandLime,
         ),
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
-          backgroundColor: Colors.indigo.shade700,
+          backgroundColor: AppColors.brandDarkTeal,
           foregroundColor: Colors.white,
         ),
       ),
-      home: CallCentersScreen(database: database),
+      home: LandingSplashScreen(database: database),
     );
   }
 }

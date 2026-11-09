@@ -4,6 +4,9 @@ import 'package:qara/database/app_database.dart';
 import 'package:qara/models/call_center.dart';
 import 'package:qara/screens/call_center_detail_screen.dart';
 import 'package:qara/services/caller_id_service.dart';
+import 'package:qara/theme/app_theme.dart';
+import 'package:qara/widgets/create_call_center_dialog.dart';
+import 'package:qara/widgets/welcome_call_center_view.dart';
 
 /// CallCentersScreen
 ///
@@ -32,17 +35,9 @@ class _CallCentersScreenState extends State<CallCentersScreen>
   String _searchQuery = '';
   bool _isCallerIdEnabled = false;
   bool _isOverlayEnabled = false;
+  bool _isSyncing = false;
 
   final TextEditingController _searchController = TextEditingController();
-
-  static const List<String> _colorPalette = [
-    '#3F51B5', // Indigo
-    '#00897B', // Teal
-    '#D81B60', // Pink / Rose
-    '#E65100', // Deep Orange
-    '#5E35B1', // Deep Purple
-    '#1E88E5', // Blue
-  ];
 
   @override
   void initState() {
@@ -67,6 +62,54 @@ class _CallCentersScreenState extends State<CallCentersScreen>
       await CallerIdService.syncContactsToCallDirectory(allContacts);
     } catch (_) {
       // Background sync
+    }
+  }
+
+  Future<void> _handleManualSync() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      final allContacts = await widget.database.getAllContacts();
+      await CallerIdService.syncContactsToCallDirectory(allContacts);
+      await _checkCallerIdStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppColors.brandLime, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    allContacts.isEmpty
+                        ? 'Caller ID directory synchronized (ready for contacts)'
+                        : 'Caller ID directory synchronized (${allContacts.length} contacts)',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.brandDarkTeal,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: $e'),
+            backgroundColor: Colors.red.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
 
@@ -115,150 +158,14 @@ class _CallCentersScreenState extends State<CallCentersScreen>
   }
 
   Future<void> _showCreateCenterDialog() async {
-    final nameController = TextEditingController();
-    final locationController = TextEditingController();
-    final descController = TextEditingController();
-    String selectedColor = _colorPalette.first;
-    String? validationError;
+    final newCenter = await CreateCallCenterDialog.show(context);
+    if (newCenter == null) return;
 
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.hub_outlined, color: Colors.indigo),
-                  SizedBox(width: 8),
-                  Text('New Call Center'),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Create a workspace for a specific outreach event, campaign, or team zone.',
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Call Center Name *',
-                        hintText: 'e.g. Spintex Saturday Outreach',
-                        errorText: validationError,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: locationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Location / Target Area',
-                        hintText: 'e.g. Spintex Road',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: descController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Description / Purpose (Optional)',
-                        hintText: 'e.g. Easter revival follow-up center',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Theme Color',
-                      style:
-                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: _colorPalette.map((colorHex) {
-                        final color = Color(
-                          int.parse(colorHex.replaceAll('#', '0xff')),
-                        );
-                        final isSelected = selectedColor == colorHex;
-                        return InkWell(
-                          onTap: () {
-                            setDialogState(() => selectedColor = colorHex);
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? Colors.black : Colors.white,
-                                width: isSelected ? 2.5 : 1,
-                              ),
-                            ),
-                            child: isSelected
-                                ? const Icon(Icons.check,
-                                    size: 16, color: Colors.white)
-                                : null,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isEmpty) {
-                      setDialogState(() {
-                        validationError = 'Please enter a name for the Call Center';
-                      });
-                      return;
-                    }
-
-                    final newCenter = CallCenter(
-                      id: _uuid.v4(),
-                      name: name,
-                      location: locationController.text.trim().isNotEmpty
-                          ? locationController.text.trim()
-                          : null,
-                      description: descController.text.trim().isNotEmpty
-                          ? descController.text.trim()
-                          : null,
-                      colorHex: selectedColor,
-                      createdAt: DateTime.now(),
-                      updatedAt: DateTime.now(),
-                    );
-
-                    await widget.database.insertCallCenter(newCenter);
-                    if (context.mounted) {
-                      Navigator.of(ctx).pop();
-                      await _loadCallCenters();
-                      // Navigate straight into the newly created Call Center!
-                      _openCallCenterDetail(newCenter);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Create Center'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    await widget.database.insertCallCenter(newCenter);
+    await _loadCallCenters();
+    if (mounted) {
+      _openCallCenterDetail(newCenter);
+    }
   }
 
   void _openCallCenterDetail(CallCenter center) {
@@ -321,6 +228,27 @@ class _CallCentersScreenState extends State<CallCentersScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.mintBackgroundCenter,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandDarkTeal),
+          ),
+        ),
+      );
+    }
+
+    if (_allCenters.isEmpty) {
+      return Scaffold(
+        body: WelcomeCallCenterView(
+          onCreateCenterPressed: _showCreateCenterDialog,
+          onSyncPressed: _handleManualSync,
+          isSyncing: _isSyncing,
+        ),
+      );
+    }
+
     final totalContacts = _allCenters.fold<int>(
       0,
       (sum, item) => sum + item.contactCount,
@@ -337,14 +265,12 @@ class _CallCentersScreenState extends State<CallCentersScreen>
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
             ),
             Text(
-              _allCenters.isEmpty
-                  ? 'Organize outreach by project / gem'
-                  : '${_allCenters.length} ${_allCenters.length == 1 ? "center" : "centers"} • $totalContacts total contacts',
+              '${_allCenters.length} ${_allCenters.length == 1 ? "center" : "centers"} • $totalContacts total contacts',
               style: TextStyle(fontSize: 11, color: Colors.indigo.shade100),
             ),
           ],
         ),
-        backgroundColor: Colors.indigo.shade700,
+        backgroundColor: AppColors.brandDarkTeal,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -392,29 +318,25 @@ class _CallCentersScreenState extends State<CallCentersScreen>
             ),
           ],
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _allCenters.isEmpty
-                    ? _buildOnboardingWelcomeState()
-                    : _filteredCenters.isEmpty
-                        ? _buildSearchEmptyState()
-                        : ListView.builder(
-                            itemCount: _filteredCenters.length,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            itemBuilder: (context, index) {
-                              final center = _filteredCenters[index];
-                              return _buildCallCenterCard(center);
-                            },
-                          ),
+            child: _filteredCenters.isEmpty
+                ? _buildSearchEmptyState()
+                : ListView.builder(
+                    itemCount: _filteredCenters.length,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    itemBuilder: (context, index) {
+                      final center = _filteredCenters[index];
+                      return _buildCallCenterCard(center);
+                    },
+                  ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateCenterDialog,
-        backgroundColor: Colors.indigo.shade700,
+        backgroundColor: AppColors.brandDarkTeal,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('New Center'),
@@ -577,55 +499,10 @@ class _CallCentersScreenState extends State<CallCentersScreen>
   }
 
   Widget _buildOnboardingWelcomeState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.hub_outlined,
-                size: 56,
-                color: Colors.indigo.shade600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Welcome to Qara',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Start by creating your first Call Center. Contacts are organized into dedicated campaigns or project centers (like Gems or Projects) so you can paste, import, and follow up with clarity.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _showCreateCenterDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Your First Call Center'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return WelcomeCallCenterView(
+      onCreateCenterPressed: _showCreateCenterDialog,
+      onSyncPressed: _handleManualSync,
+      isSyncing: _isSyncing,
     );
   }
 

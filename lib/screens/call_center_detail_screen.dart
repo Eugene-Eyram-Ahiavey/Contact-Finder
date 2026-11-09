@@ -8,6 +8,7 @@ import 'package:qara/screens/import_modal.dart';
 import 'package:qara/screens/report_preview_screen.dart';
 import 'package:qara/services/caller_id_service.dart';
 import 'package:qara/services/phone_dialer_service.dart';
+import 'package:qara/theme/app_theme.dart';
 import 'package:qara/utils/phone_number_normalizer.dart';
 
 /// CallCenterDetailScreen
@@ -572,67 +573,147 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
 
   Future<void> _showEditCenterDialog() async {
     final nameController = TextEditingController(text: _currentCenter.name);
-    final locationController = TextEditingController(text: _currentCenter.location ?? '');
-    final descController = TextEditingController(text: _currentCenter.description ?? '');
+    final locationController =
+        TextEditingController(text: _currentCenter.location ?? '');
+    final descController =
+        TextEditingController(text: _currentCenter.description ?? '');
+
+    const themePalette = [
+      '#3F51B5', // Indigo
+      '#00897B', // Teal
+      '#D81B60', // Rose / Pink
+      '#5E35B1', // Deep Purple
+      '#008AEC', // Electric Blue
+    ];
+    String selectedColor = _currentCenter.colorHex ?? themePalette.first;
 
     await showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Edit Call Center'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Call Center Name'),
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text('Edit Call Center'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Call Center Name',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Target Area / Location',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: descController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Description / Notes',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Theme Color',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: themePalette.map((colorHex) {
+                        final color = Color(
+                          int.parse(colorHex.replaceAll('#', '0xff')),
+                        );
+                        final isSelected = selectedColor == colorHex;
+
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            setDialogState(() => selectedColor = colorHex);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.brandDarkTeal
+                                      : Colors.transparent,
+                                  width: 2.8,
+                                ),
+                                boxShadow: [
+                                  if (isSelected)
+                                    BoxShadow(
+                                      color: color.withOpacity(0.5),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: locationController,
-                  decoration: const InputDecoration(labelText: 'Target Area / Location'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Description / Notes'),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newName = nameController.text.trim();
+                    if (newName.isEmpty) return;
+
+                    final updated = _currentCenter.copyWith(
+                      name: newName,
+                      location: locationController.text.trim().isNotEmpty
+                          ? locationController.text.trim()
+                          : null,
+                      description: descController.text.trim().isNotEmpty
+                          ? descController.text.trim()
+                          : null,
+                      colorHex: selectedColor,
+                      updatedAt: DateTime.now(),
+                    );
+
+                    await widget.database.updateCallCenter(updated);
+                    if (mounted) {
+                      setState(() => _currentCenter = updated);
+                      widget.onCenterUpdated();
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandDarkTeal,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Save Changes'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newName = nameController.text.trim();
-                if (newName.isEmpty) return;
-
-                final updated = _currentCenter.copyWith(
-                  name: newName,
-                  location: locationController.text.trim().isNotEmpty
-                      ? locationController.text.trim()
-                      : null,
-                  description: descController.text.trim().isNotEmpty
-                      ? descController.text.trim()
-                      : null,
-                  updatedAt: DateTime.now(),
-                );
-
-                await widget.database.updateCallCenter(updated);
-                if (mounted) {
-                  setState(() => _currentCenter = updated);
-                  widget.onCenterUpdated();
-                  Navigator.of(ctx).pop();
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -644,49 +725,81 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
     super.dispose();
   }
 
+  LinearGradient _getHeaderGradient(Color baseColor) {
+    final hsl = HSLColor.fromColor(baseColor);
+    final topColor =
+        hsl.withLightness((hsl.lightness - 0.06).clamp(0.0, 1.0)).toColor();
+    final bottomColor =
+        hsl.withLightness((hsl.lightness + 0.08).clamp(0.0, 1.0)).toColor();
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [topColor, bottomColor],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final centerColor = _currentCenter.colorHex != null
+        ? Color(int.parse(_currentCenter.colorHex!.replaceAll('#', '0xff')))
+        : AppColors.brandDarkTeal;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.mintBackgroundCenter,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               _currentCenter.name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
             ),
+            const SizedBox(height: 2),
             Text(
-              _allContacts.isEmpty
-                  ? '0 contacts'
-                  : _selectedFilter == 'All' && _searchQuery.isEmpty
-                      ? '${_allContacts.length} contacts (Newest on top)'
-                      : '${_contacts.length} of ${_allContacts.length} contacts',
-              style: TextStyle(fontSize: 11, color: Colors.indigo.shade100),
+              '${_allContacts.length} Contacts',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withOpacity(0.85),
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
-        backgroundColor: Colors.indigo.shade700,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: _getHeaderGradient(centerColor),
+          ),
+        ),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.assessment_outlined),
-            tooltip: 'Call Report',
-            onPressed: _openReportPreview,
-          ),
-          IconButton(
-            icon: const Icon(Icons.paste),
-            tooltip: 'Paste / Import Contacts',
-            onPressed: _openImportModal,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add Single Contact',
-            onPressed: _showAddContactDialog,
-          ),
+          if (_allContacts.isNotEmpty) ...[
+            IconButton(
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              tooltip: 'Add Contact',
+              onPressed: _showAddContactDialog,
+            ),
+            IconButton(
+              icon: const Icon(Icons.content_paste_outlined),
+              tooltip: 'Paste / Import Contacts',
+              onPressed: _openImportModal,
+            ),
+          ],
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: Icon(Icons.more_vert, color: Colors.white.withOpacity(0.9)),
             onSelected: (val) {
               if (val == 'report') {
                 _openReportPreview();
@@ -711,7 +824,7 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
                 value: 'import',
                 child: Row(
                   children: [
-                    Icon(Icons.paste_outlined, size: 20),
+                    Icon(Icons.content_paste_outlined, size: 20),
                     SizedBox(width: 8),
                     Text('Import / Paste Contacts'),
                   ],
@@ -731,51 +844,81 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // In-Center Search Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Search in ${_currentCenter.name}...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.welcomeGradient,
+        ),
+        child: Column(
+          children: [
+            // In-Center Pill Search Bar (Screen 1 & 5)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFCDE2DE),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search in ${_currentCenter.name}...',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF7A8E92),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF4A6469),
+                      size: 20,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              size: 18,
+                              color: Color(0xFF7A8E92),
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              _onSearchChanged('');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Location & Notes Filter Chips
-          _buildFilterChips(),
+            // Location & Notes Filter Chips (Only shown when contacts exist)
+            _buildFilterChips(),
 
-          // Contacts List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _contacts.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
+            // Contacts List / Empty State
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _contacts.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
                         itemCount: _contacts.length,
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         itemBuilder: (context, index) {
@@ -1051,13 +1194,16 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openImportModal,
-        backgroundColor: Colors.indigo.shade700,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.paste),
-        label: const Text('Paste Notes'),
-      ),
+    ),
+    floatingActionButton: _contacts.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _openImportModal,
+              backgroundColor: centerColor,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.paste),
+              label: const Text('Paste Notes'),
+            ),
     );
   }
 
@@ -1191,60 +1337,157 @@ class _CallCenterDetailScreenState extends State<CallCenterDetailScreen> {
   }
 
   Widget _buildEmptyState() {
+    if (_searchQuery.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFD6E8E6)),
+                ),
+                child: const Icon(
+                  Icons.search_off_rounded,
+                  size: 44,
+                  color: Color(0xFF7A8E92),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'No contacts matching "$_searchQuery"',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Check your spelling or try searching by phone number or location.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Figma Screen 1: Call Center Workspace Empty State
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Soft mint circle with two-person user group icon
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(
+                color: Color(0xFFD4F5E9),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.people_outline,
-                size: 48,
-                color: Colors.indigo.shade600,
+              child: const Icon(
+                Icons.people_outline_rounded,
+                size: 42,
+                color: Color(0xFF229E64),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? 'No contacts matching "$_searchQuery"'
-                  : 'No Contacts in this Center Yet',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? 'Check your spelling or try searching by location/phone.'
-                  : 'Paste your outreach contacts from Apple Notes, WhatsApp, or Excel to populate this Call Center.',
+            const SizedBox(height: 24),
+            // Headline: "No Contacts here yet"
+            const Text(
+              'No Contacts here yet',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF102024),
+                letterSpacing: -0.2,
+              ),
             ),
-            const SizedBox(height: 20),
-            if (_searchQuery.isEmpty)
-              ElevatedButton.icon(
-                onPressed: _openImportModal,
-                icon: const Icon(Icons.paste),
-                label: const Text('Paste Contacts Here'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+            const SizedBox(height: 12),
+            // Subtitle
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: const Text(
+                'Add a Contact or Paste your outreach contacts from Apple Notes, WhatsApp, or Excel to populate this Call Center.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF5A6E73),
+                  height: 1.45,
                 ),
               ),
+            ),
+            const SizedBox(height: 32),
+            // Stacked Action Pill Buttons
+            // 1. Add Contact button (Obsidian Dark Teal)
+            ElevatedButton.icon(
+              onPressed: _showAddContactDialog,
+              icon: const Icon(
+                Icons.person_add_alt_1_outlined,
+                size: 18,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Add Contact',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.1,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10222C),
+                foregroundColor: Colors.white,
+                elevation: 4,
+                shadowColor: const Color(0xFF10222C).withOpacity(0.35),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            // 2. Upload/Paste Contacts button (Slate Teal)
+            ElevatedButton.icon(
+              onPressed: _openImportModal,
+              icon: const Icon(
+                Icons.content_paste_outlined,
+                size: 18,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Upload/Paste Contacts',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.1,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF164756),
+                foregroundColor: Colors.white,
+                elevation: 3,
+                shadowColor: const Color(0xFF164756).withOpacity(0.3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ),
           ],
         ),
       ),

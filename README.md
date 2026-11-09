@@ -1,3 +1,4 @@
+
 # Qara (קָרָא) — Outreach Caller ID
 
 A mobile application that helps church evangelism teams identify known contacts when they call back, without requiring every person to be manually saved in the user's personal phone address book. Named after the Hebrew word *Qara* (קָרָא) — "to call, summon, or proclaim".
